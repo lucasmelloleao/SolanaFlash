@@ -18,19 +18,19 @@ export class QuoteService {
     static async getQuotes(tokenMint: string, borrowAmount: number, useRaptor: boolean) {
         const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
         let quoteA, quoteB;
-        
+
         try {
             if (useRaptor) {
-                const quoteARes = await raptorApi.get(`/quote?inputMint=${USDC_MINT}&outputMint=${tokenMint}&amount=${borrowAmount}&slippageBps=2&onlyDirectRoutes=true&asLegacyTransaction=true&maxAccounts=8`);
+                const quoteARes = await raptorApi.get(`/quote?inputMint=${USDC_MINT}&outputMint=${tokenMint}&amount=${borrowAmount}&slippageBps=2&onlyDirectRoutes=true`);
                 quoteA = quoteARes.data;
                 if (!quoteA || !quoteA.amountOut) return null;
-                const quoteBRes = await raptorApi.get(`/quote?inputMint=${tokenMint}&outputMint=${USDC_MINT}&amount=${quoteA.amountOut}&slippageBps=2&onlyDirectRoutes=true&asLegacyTransaction=true&maxAccounts=8`);
+                const quoteBRes = await raptorApi.get(`/quote?inputMint=${tokenMint}&outputMint=${USDC_MINT}&amount=${quoteA.amountOut}&slippageBps=2&onlyDirectRoutes=true`);
                 quoteB = quoteBRes.data;
             } else {
-                const quoteARes = await jupApi.get(`/quote?inputMint=${USDC_MINT}&outputMint=${tokenMint}&amount=${borrowAmount}&slippageBps=2&onlyDirectRoutes=true&asLegacyTransaction=true&maxAccounts=8`);
+                const quoteARes = await jupApi.get(`/quote?inputMint=${USDC_MINT}&outputMint=${tokenMint}&amount=${borrowAmount}&slippageBps=2&onlyDirectRoutes=true`);
                 quoteA = quoteARes.data;
                 if (!quoteA) return null;
-                const quoteBRes = await jupApi.get(`/quote?inputMint=${tokenMint}&outputMint=${USDC_MINT}&amount=${quoteA.outAmount}&slippageBps=2&onlyDirectRoutes=true&asLegacyTransaction=true&maxAccounts=8`);
+                const quoteBRes = await jupApi.get(`/quote?inputMint=${tokenMint}&outputMint=${USDC_MINT}&amount=${quoteA.outAmount}&slippageBps=2&onlyDirectRoutes=true`);
                 quoteB = quoteBRes.data;
             }
             if (!quoteB) return null;
@@ -43,11 +43,11 @@ export class QuoteService {
 
     static async getSwapInstructions(quoteResponse: any, userPublicKeyBase58: string, useRaptor: boolean) {
         const swapApi = useRaptor ? raptorApi : jupApi;
-        const res = await swapApi.post('/swap-instructions', { 
-            quoteResponse, 
-            userPublicKey: userPublicKeyBase58, 
-            wrapAndUnwrapSol: false, 
-            asLegacyTransaction: true 
+        const res = await swapApi.post('/swap-instructions', {
+            quoteResponse,
+            userPublicKey: userPublicKeyBase58,
+            wrapAndUnwrapSol: false,
+            asLegacyTransaction: false
         });
         return res.data;
     }

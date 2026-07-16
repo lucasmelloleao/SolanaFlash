@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle, Pencil } from 'lucide-react';
 import clsx from 'clsx';
 
 const KNOWN_TOKENS = [
@@ -9,7 +9,13 @@ const KNOWN_TOKENS = [
   { symbol: 'USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
   { symbol: 'USDT', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' },
   { symbol: 'RAY', mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R' },
-  { symbol: 'BONK', mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' }
+  { symbol: 'BONK', mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
+  { symbol: 'WIF', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
+  { symbol: 'POPCAT', mint: '7GCihgDB8fe6KNjn2g7hu4pGte2L4bT53G2r7Z4fN1hX' },
+  { symbol: 'MEW', mint: 'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5' },
+  { symbol: 'JUP', mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
+  { symbol: 'PYTH', mint: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3GBfWejP87qQ2U' },
+  { symbol: 'JTO', mint: 'jtojtomepa8beP8AuQc6eP9fH63Kx5YxV5fJkFz7yTz' }
 ];
 
 type Strategy = {
@@ -20,6 +26,7 @@ type Strategy = {
   borrowAmount: number;
   minProfitUsdc: number;
   provider: string;
+  lendingProvider: string;
   active: boolean;
 }
 
@@ -30,10 +37,12 @@ export default function FlashLoanPage() {
   const [borrowAmount, setBorrowAmount] = useState('');
   const [minProfitUsdc, setMinProfitUsdc] = useState('0');
   const [provider, setProvider] = useState('jupiter');
+  const [lendingProvider, setLendingProvider] = useState('solend');
   const [botOnline, setBotOnline] = useState<boolean | null>(null);
 
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState('');
+  const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
   const fetchStrategies = async () => {
     const res = await fetch('/api/strategies', {
@@ -85,10 +94,33 @@ export default function FlashLoanPage() {
     const res = await fetch('/api/strategies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ name, walletId: selectedWalletId, tokenBMint, tokenBSymbol: tokenObj?.symbol || 'UNKNOWN', borrowAmount: Number(borrowAmount), minProfitUsdc: Number(minProfitUsdc), provider })
+      body: JSON.stringify({ name, walletId: selectedWalletId, tokenBMint, tokenBSymbol: tokenObj?.symbol || 'UNKNOWN', borrowAmount: Number(borrowAmount), minProfitUsdc: Number(minProfitUsdc), provider, lendingProvider })
     });
     if (res.ok) {
-      setName(''); setTokenBMint(KNOWN_TOKENS[0].mint); setBorrowAmount(''); setMinProfitUsdc('0');
+      setName(''); setTokenBMint(KNOWN_TOKENS[0].mint); setBorrowAmount(''); setMinProfitUsdc('0'); setLendingProvider('solend');
+      fetchStrategies();
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingStrategy) return;
+    const tokenObj = KNOWN_TOKENS.find(t => t.mint === editingStrategy.tokenBMint);
+    const res = await fetch('/api/strategies', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ 
+        id: editingStrategy._id, 
+        name: editingStrategy.name, 
+        borrowAmount: editingStrategy.borrowAmount, 
+        minProfitUsdc: editingStrategy.minProfitUsdc,
+        provider: editingStrategy.provider,
+        lendingProvider: editingStrategy.lendingProvider,
+        tokenBMint: editingStrategy.tokenBMint,
+        tokenBSymbol: tokenObj?.symbol || 'UNKNOWN'
+      })
+    });
+    if (res.ok) {
+      setEditingStrategy(null);
       fetchStrategies();
     }
   };
@@ -156,19 +188,34 @@ export default function FlashLoanPage() {
                   {strat.tokenBMint.substring(0,6)}...{strat.tokenBMint.substring(strat.tokenBMint.length-6)}
                 </p>
               </div>
-              <button onClick={() => handleDelete(strat._id)} className="text-slate-600 hover:text-red-400 transition-colors p-1 bg-slate-800/50 rounded-md">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!strat.active && (
+                  <button onClick={() => setEditingStrategy(strat)} className="text-slate-600 hover:text-indigo-400 transition-colors p-1 bg-slate-800/50 rounded-md" title="Edit Strategy">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                <button onClick={() => handleDelete(strat._id)} className="text-slate-600 hover:text-red-400 transition-colors p-1 bg-slate-800/50 rounded-md">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-3 gap-4 mt-4">
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Borrow Size</p>
                 <p className="text-sm font-semibold text-emerald-400">${strat.borrowAmount.toLocaleString()} USDC</p>
               </div>
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
-                <p className="text-xs text-slate-500 mb-1">Provider</p>
-                <p className="text-sm font-semibold text-indigo-400 capitalize">{strat.provider}</p>
+                <p className="text-xs text-slate-500 mb-1">Lending Prov.</p>
+                <p className="text-sm font-semibold text-indigo-400 capitalize">
+                  {strat.lendingProvider === 'kamino' ? 'Kamino' : 'Solend'} 
+                </p>
+              </div>
+              <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
+                <p className="text-xs text-slate-500 mb-1">DEX Prov.</p>
+                <p className="text-sm font-semibold text-sky-400 capitalize">
+                  {strat.provider}
+                </p>
               </div>
             </div>
           </div>
@@ -186,7 +233,7 @@ export default function FlashLoanPage() {
               <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="e.g. USDC/SOL Arb" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Provider</label>
+              <label className="block text-sm text-slate-400 mb-1">DEX Provider</label>
               <select value={provider} onChange={e => setProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                 <option value="jupiter">Jupiter (Default)</option>
                 <option value="raptor">Raptor API</option>
@@ -194,14 +241,23 @@ export default function FlashLoanPage() {
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Execution Wallet (Pays Fees & Receives Profit)</label>
-            <select required value={selectedWalletId} onChange={e => setSelectedWalletId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
-              {wallets.length === 0 ? <option value="">No wallets registered</option> : null}
-              {wallets.map(w => (
-                <option key={w._id} value={w._id}>{w.acronym} - {w.publicKey.substring(0,6)}...{w.publicKey.substring(w.publicKey.length-4)}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Execution Wallet</label>
+              <select required value={selectedWalletId} onChange={e => setSelectedWalletId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                {wallets.length === 0 ? <option value="">No wallets registered</option> : null}
+                {wallets.map(w => (
+                  <option key={w._id} value={w._id}>{w.acronym} - {w.publicKey.substring(0,6)}...{w.publicKey.substring(w.publicKey.length-4)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Lending Provider</label>
+              <select value={lendingProvider} onChange={e => setLendingProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                <option value="solend">Solend (Main Pool)</option>
+                <option value="kamino">Kamino Finance (K-Lend)</option>
+              </select>
+            </div>
           </div>
 
           <div>
@@ -229,6 +285,60 @@ export default function FlashLoanPage() {
           </button>
         </form>
       </div>
+
+      {editingStrategy && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-lg w-full max-w-md my-8">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-indigo-500" /> Edit Strategy
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Strategy Name</label>
+                <input value={editingStrategy.name} onChange={e => setEditingStrategy({...editingStrategy, name: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Lending Provider</label>
+                  <select value={editingStrategy.lendingProvider} onChange={e => setEditingStrategy({...editingStrategy, lendingProvider: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                    <option value="solend">Solend</option>
+                    <option value="kamino">Kamino</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">DEX Provider</label>
+                  <select value={editingStrategy.provider} onChange={e => setEditingStrategy({...editingStrategy, provider: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                    <option value="jupiter">Jupiter</option>
+                    <option value="raptor">Raptor API</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Target Arbitrage Token</label>
+                <select value={editingStrategy.tokenBMint} onChange={e => setEditingStrategy({...editingStrategy, tokenBMint: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                  {KNOWN_TOKENS.map(t => (
+                    <option key={t.mint} value={t.mint}>{t.symbol}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Borrow Amount (USDC)</label>
+                  <input type="number" value={editingStrategy.borrowAmount} onChange={e => setEditingStrategy({...editingStrategy, borrowAmount: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Min. Profit (USDC)</label>
+                  <input type="number" step="0.01" value={editingStrategy.minProfitUsdc} onChange={e => setEditingStrategy({...editingStrategy, minProfitUsdc: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setEditingStrategy(null)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg transition-colors">Cancel</button>
+                <button onClick={handleEditSubmit} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg transition-colors font-medium">Save Changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

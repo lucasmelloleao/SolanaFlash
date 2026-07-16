@@ -42,15 +42,27 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
 export const PUT = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { id, active } = await req.json();
+    const body = await req.json();
+    const { id, active, borrowAmount, minProfitUsdc, name, walletId, provider, lendingProvider, tokenBMint, tokenBSymbol } = body;
 
-    if (!id || active === undefined) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
+
+    const updateData: any = {};
+    if (active !== undefined) updateData.active = active;
+    if (borrowAmount !== undefined) updateData.borrowAmount = Number(borrowAmount);
+    if (minProfitUsdc !== undefined) updateData.minProfitUsdc = Number(minProfitUsdc);
+    if (name !== undefined) updateData.name = name;
+    if (walletId !== undefined) updateData.walletId = walletId;
+    if (provider !== undefined) updateData.provider = provider;
+    if (lendingProvider !== undefined) updateData.lendingProvider = lendingProvider;
+    if (tokenBMint !== undefined) updateData.tokenBMint = tokenBMint;
+    if (tokenBSymbol !== undefined) updateData.tokenBSymbol = tokenBSymbol;
 
     const strategy = await FlashLoanStrategy.findOneAndUpdate(
       { _id: id, userId },
-      { active },
+      updateData,
       { new: true }
     );
 

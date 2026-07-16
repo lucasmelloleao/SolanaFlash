@@ -4,6 +4,7 @@ import { QuoteService } from './services/QuoteService';
 import { SolanaService } from './services/SolanaService';
 import { TransactionBuilder } from './services/TransactionBuilder';
 import { getSolendPoolConfig } from './config/solend-pools';
+import { getKaminoPoolConfig } from './config/kamino-pools';
 import FlashLoanTrade from '../models/FlashLoanTrade';
 
 // Logger Mock
@@ -17,7 +18,8 @@ let botMode = 'simulated';
 let isAnalyzing = false;
 let globalPenaltyMs = 0;
 let lastExecutionTime = 0;
-// Throttle interval will be dynamically calculated: 3000ms for Jupiter (to avoid rate limits), 400ms for Raptor
+// Throttle requests to Jupiter/Raptor: max ~1 per 800ms to avoid rate limits while being fast
+const MIN_INTERVAL_MS = 800;  
 
 let latestJitoTipLamports = 25000;
 let cachedStrategies: any[] = [];
@@ -71,7 +73,7 @@ async function reloadState() {
 
         for (const walletId of uniqueWalletIds) {
             if (!walletCache.has(walletId)) {
-                const keypair = await DatabaseService.getWalletForUser(userIdCache!); // Temporary fix, should ideally fetch by wallet ID, but we only have 1 user in cache setup.
+                const keypair = await DatabaseService.getWalletForUser(userIdCache!); // Temporary fix
                 if (keypair) {
                     const usdcAta = SolanaService.deriveAssociatedTokenAddress(USDC_MINT_PK, keypair.publicKey);
                     const balance = await conn.getBalance(keypair.publicKey);
@@ -88,11 +90,7 @@ async function reloadState() {
 async function runArbitrageCycle() {
     if (isAnalyzing || cachedStrategies.length === 0) return;
     const now = Date.now();
-    
-    const hasJupiter = cachedStrategies.some(s => s.provider === 'jupiter');
-    const minIntervalMs = hasJupiter ? 3000 : 400;
-
-    if (globalPenaltyMs > now || now - lastExecutionTime < minIntervalMs) return;
+    if (globalPenaltyMs > now || now - lastExecutionTime < MIN_INTERVAL_MS) return;
 
     isAnalyzing = true;
     lastExecutionTime = now;
@@ -102,7 +100,14 @@ async function runArbitrageCycle() {
         await Promise.all(cachedStrategies.map(async (strategy) => {
             try {
                 const tokenBorrowed = strategy.tokenAMint || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // Defaults to USDC
-                const poolConfig = getSolendPoolConfig(tokenBorrowed);
+                const lendingProvider = strategy.lendingProvider || 'solend';
+                
+                let poolConfig;
+                if (lendingProvider === 'kamino') {
+                    poolConfig = getKaminoPoolConfig(tokenBorrowed);
+                } else {
+                    poolConfig = getSolendPoolConfig(tokenBorrowed);
+                }
 
                 const BORROW_AMOUNT = Math.floor(strategy.borrowAmount * 1e6);
                 const useRaptor = strategy.provider === 'raptor';
@@ -111,7 +116,7 @@ async function runArbitrageCycle() {
                 if (!quotes) return;
 
                 const { quoteA, quoteB } = quotes;
-                const flashLoanFee = Math.ceil((BORROW_AMOUNT * 9) / 10000);
+                const flashLoanFee = Math.ceil((BORROW_AMOUNT * 9) / 10000); // 0.09% varies by pool in reality
                 
                 let finalAmount = useRaptor ? parseInt(quoteB.amountOut) : parseInt(quoteB.outAmount);
                 if (useRaptor) finalAmount = Math.floor(finalAmount * 0.995);
@@ -159,7 +164,8 @@ async function runArbitrageCycle() {
                                 instructionsARes,
                                 instructionsBRes,
                                 executionWallet.usdcAta,
-                                poolConfig
+                                poolConfig,
+                                lendingProvider
                             );
 
                             if (result) {
