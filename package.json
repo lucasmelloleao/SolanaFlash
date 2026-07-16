@@ -3,24 +3,46 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 8080",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "bot": "tsx src/bot/engine.ts"
   },
   "dependencies": {
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
+    "axios": "^1.18.1",
+    "bcryptjs": "^3.0.3",
+    "bip39": "^3.1.0",
+    "bn.js": "^5.2.5",
+    "bs58": "^6.0.0",
+    "buffer-layout": "^1.2.2",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "ed25519-hd-key": "^2.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "lru-cache": "^11.5.2",
+    "lucide-react": "^1.24.0",
+    "mongoose": "^9.7.4",
     "next": "16.2.10",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/bn.js": "^5.2.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }
