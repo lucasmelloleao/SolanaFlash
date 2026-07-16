@@ -14,12 +14,12 @@ const logger = {
     error: (obj: any, msg?: string) => console.error(`[ERROR] ${msg || ''}`, typeof obj === 'string' ? obj : JSON.stringify(obj)),
 };
 
-let botMode = 'simulated'; 
+let botMode = 'simulated';
 let isAnalyzing = false;
 let globalPenaltyMs = 0;
 let lastExecutionTime = 0;
 // Throttle requests to Jupiter/Raptor: max ~1 per 800ms to avoid rate limits while being fast
-const MIN_INTERVAL_MS = 800;  
+const MIN_INTERVAL_MS = 800;
 
 let latestJitoTipLamports = 25000;
 let cachedStrategies: any[] = [];
@@ -65,7 +65,7 @@ async function reloadState() {
     cachedStrategies = await DatabaseService.getActiveStrategies();
     if (cachedStrategies.length > 0) {
         userIdCache = cachedStrategies[0].userId.toString();
-        
+
         const USDC_MINT_PK = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
         const conn = await SolanaService.getConnection();
 
@@ -101,7 +101,7 @@ async function runArbitrageCycle() {
             try {
                 const tokenBorrowed = strategy.tokenAMint || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // Defaults to USDC
                 const lendingProvider = strategy.lendingProvider || 'solend';
-                
+
                 let poolConfig;
                 if (lendingProvider === 'kamino') {
                     poolConfig = getKaminoPoolConfig(tokenBorrowed);
@@ -111,13 +111,13 @@ async function runArbitrageCycle() {
 
                 const BORROW_AMOUNT = Math.floor(strategy.borrowAmount * 1e6);
                 const useRaptor = strategy.provider === 'raptor';
-                
+
                 const quotes = await QuoteService.getQuotes(strategy.tokenBMint, BORROW_AMOUNT, useRaptor);
                 if (!quotes) return;
 
                 const { quoteA, quoteB } = quotes;
                 const flashLoanFee = Math.ceil((BORROW_AMOUNT * 9) / 10000); // 0.09% varies by pool in reality
-                
+
                 let finalAmount = useRaptor ? parseInt(quoteB.amountOut) : parseInt(quoteB.outAmount);
                 if (useRaptor) finalAmount = Math.floor(finalAmount * 0.995);
 
@@ -127,7 +127,7 @@ async function runArbitrageCycle() {
 
                 const profit = finalAmount - (BORROW_AMOUNT + flashLoanFee + totalExecutionCostMicroUsdc);
 
-                if (profit > (strategy.minProfitUsdc * 1e6)) {
+                if (profit >= (strategy.minProfitUsdc * 1e6)) {
                     logger.info({ profitUsdc: (profit / 1e6).toFixed(4) }, '💰 OPORTUNIDADE DETECTADA');
 
                     if (botMode === 'live' && !circuitBreaker.check()) return;
@@ -150,10 +150,8 @@ async function runArbitrageCycle() {
                         }
 
                         const pubkeyBase58 = executionWallet.keypair.publicKey.toBase58();
-                        const [instructionsARes, instructionsBRes] = await Promise.all([
-                            QuoteService.getSwapInstructions(quoteA, pubkeyBase58, useRaptor),
-                            QuoteService.getSwapInstructions(quoteB, pubkeyBase58, useRaptor)
-                        ]);
+                        const instructionsARes = await QuoteService.getSwapInstructions(quoteA, pubkeyBase58, useRaptor);
+                        const instructionsBRes = await QuoteService.getSwapInstructions(quoteB, pubkeyBase58, useRaptor);
 
                         try {
                             const result = await TransactionBuilder.buildAndSendArbitrage(
@@ -214,18 +212,18 @@ async function startEngine() {
 
     try {
         await DatabaseService.connect();
-        
+
         // Initial Fetch for botMode and State
         const status = await DatabaseService.updateHeartbeatAndGetStatus();
         botMode = status.botMode;
-        
+
         await reloadState();
 
         // Heartbeat & Status fetch
         setInterval(async () => {
             const status = await DatabaseService.updateHeartbeatAndGetStatus();
             botMode = status.botMode;
-            
+
             latestJitoTipLamports = await SolanaService.getDynamicJitoTip();
             cachedSolPriceUsdc = await QuoteService.fetchSolPriceUsdc();
             await reloadState();
@@ -234,13 +232,13 @@ async function startEngine() {
         // WebSockets Event-Driven Execution
         const wssConnection = await SolanaService.getWssConnection();
         console.log(`🔌 Conectado ao WebSocket da Solana (WSS). Aguardando slots...`);
-        
+
         wssConnection.onSlotChange((slotInfo) => {
             if (cachedStrategies.length === 0) {
                 // Do not clutter output on every slot if no strategies
                 return;
             }
-            
+
             // Trigger the arbitrage cycle on every new block (slot)
             // The runArbitrageCycle function will naturally throttle itself to MIN_INTERVAL_MS
             runArbitrageCycle().catch(err => {
