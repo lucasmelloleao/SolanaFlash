@@ -3,6 +3,8 @@ import connectToDatabase from '@/lib/mongodb';
 import SystemStatus from '@/models/SystemStatus';
 import { withAuth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
@@ -13,8 +15,8 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       const now = new Date().getTime();
       const lastHeartbeat = new Date(status.botLastHeartbeat).getTime();
       
-      // Se o último pulso foi há menos de 15 segundos, está online
-      if (now - lastHeartbeat < 15000) {
+      // Se o último pulso foi há menos de 30 segundos, está online
+      if (now - lastHeartbeat < 30000) {
         botOnline = true;
       }
     }

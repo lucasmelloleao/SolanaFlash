@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle, Pencil } from 'lucide-react';
+import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle, Pencil, Activity } from 'lucide-react';
 import clsx from 'clsx';
 
 const KNOWN_TOKENS = [
@@ -38,7 +38,10 @@ export default function FlashLoanPage() {
   const [minProfitUsdc, setMinProfitUsdc] = useState('0');
   const [provider, setProvider] = useState('jupiter');
   const [lendingProvider, setLendingProvider] = useState('solend');
-  const [botOnline, setBotOnline] = useState<boolean | null>(null);
+  const [botOnline, setBotOnline] = useState<boolean>(false);
+  const [botMode, setBotMode] = useState<'simulated' | 'live'>('simulated');
+  const [connectionMode, setConnectionMode] = useState<'rpc' | 'wss'>('rpc');
+  const [loadingStatus, setLoadingStatus] = useState(false);
 
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState('');
@@ -70,9 +73,11 @@ export default function FlashLoanPage() {
       if (res.ok) {
         const data = await res.json();
         setBotOnline(data.botOnline);
+        if (data.botMode) setBotMode(data.botMode);
+        if (data.connectionMode) setConnectionMode(data.connectionMode);
       }
     } catch (e) {
-      console.error(e);
+      setBotOnline(false);
     }
   };
 
@@ -80,9 +85,55 @@ export default function FlashLoanPage() {
     fetchStrategies(); 
     fetchWallets();
     checkBotStatus();
-    const interval = setInterval(checkBotStatus, 5000);
+    const interval = setInterval(checkBotStatus, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  const toggleBotMode = async () => {
+    setLoadingStatus(true);
+    const newMode = botMode === 'simulated' ? 'live' : 'simulated';
+    try {
+      const res = await fetch('/api/system/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ botMode: newMode })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBotMode(data.botMode);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  const toggleConnectionMode = async () => {
+    setLoadingStatus(true);
+    const newMode = connectionMode === 'rpc' ? 'wss' : 'rpc';
+    try {
+      const res = await fetch('/api/system/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ connectionMode: newMode })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConnectionMode(data.connectionMode);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,8 +195,88 @@ export default function FlashLoanPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-white">Flash Loan Strategies</h3>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+          Flash Loan Arbitrage
+        </h3>
+        
+        {/* Flash Loan Engine Controls */}
+        <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 py-2 px-4 rounded-xl">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span className="text-slate-400">Status:</span>
+            {botOnline ? (
+              <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full text-xs border border-emerald-400/20">
+                <Activity className="w-3 h-3 animate-pulse" /> Online
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-rose-400 bg-rose-400/10 px-2.5 py-1 rounded-full text-xs border border-rose-400/20">
+                <span className="w-2 h-2 rounded-full bg-rose-400"></span> Offline
+              </span>
+            )}
+          </div>
+          
+          <div className="h-6 w-px bg-slate-800"></div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-400">Mode:</span>
+            <button
+              onClick={toggleBotMode}
+              disabled={loadingStatus}
+              className={clsx(
+                "relative inline-flex h-8 items-center rounded-full w-32 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900",
+                botMode === 'live' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600',
+                loadingStatus && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <span className="sr-only">Toggle Bot Mode</span>
+              <span
+                className={clsx(
+                  "inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center",
+                  botMode === 'live' ? 'translate-x-[6.5rem]' : 'translate-x-1'
+                )}
+              >
+                {botMode === 'live' ? <Pause className="w-3 h-3 text-rose-500" /> : <Play className="w-3 h-3 text-emerald-500" />}
+              </span>
+              <span className={clsx(
+                "absolute text-xs font-bold text-white transition-opacity",
+                botMode === 'live' ? 'left-3' : 'left-9'
+              )}>
+                {botMode === 'live' ? 'LIVE (DANGER)' : 'SIMULATED'}
+              </span>
+            </button>
+          </div>
+
+          <div className="h-6 w-px bg-slate-800"></div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-400">Conn:</span>
+            <button
+              onClick={toggleConnectionMode}
+              disabled={loadingStatus}
+              className={clsx(
+                "relative inline-flex h-8 items-center rounded-full w-24 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900",
+                connectionMode === 'wss' ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-slate-600 hover:bg-slate-700',
+                loadingStatus && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <span className="sr-only">Toggle Connection Mode</span>
+              <span
+                className={clsx(
+                  "inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center",
+                  connectionMode === 'wss' ? 'translate-x-[4.5rem]' : 'translate-x-1'
+                )}
+              >
+                <Activity className={clsx("w-3 h-3", connectionMode === 'wss' ? "text-indigo-500" : "text-slate-600")} />
+              </span>
+              <span className={clsx(
+                "absolute text-xs font-bold text-white transition-opacity",
+                connectionMode === 'wss' ? 'left-3' : 'left-7'
+              )}>
+                {connectionMode === 'wss' ? 'WSS' : 'RPC'}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {botOnline === false && (
