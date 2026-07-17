@@ -16,7 +16,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { name, walletId, tokenAMint, tokenBMint, tokenBSymbol, borrowAmount, minProfitUsdc, provider } = await req.json();
+    const { name, walletId, tokenAMint, tokenBMint, tokenBSymbol, borrowAmount, minProfitUsdc, provider, temporary } = await req.json();
 
     if (!name || !walletId || !tokenBMint || !borrowAmount) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -31,7 +31,8 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       tokenBSymbol: tokenBSymbol || 'UNKNOWN',
       borrowAmount, 
       minProfitUsdc, 
-      provider 
+      provider,
+      temporary: temporary || false
     });
     return NextResponse.json(strategy, { status: 201 });
   } catch (error: any) {
