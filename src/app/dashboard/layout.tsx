@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Wallet, Zap, LayoutDashboard, LogOut, History, Play, Pause, Activity } from 'lucide-react';
+import { Wallet, Zap, LayoutDashboard, LogOut, History, Play, Pause, Activity, TrendingUp } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -113,6 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/dashboard/wallets', label: 'Wallets', icon: Wallet },
     { href: '/dashboard/transactions', label: 'Transactions', icon: History },
     { href: '/dashboard/flash-loan', label: 'Flash Loans', icon: Zap },
+    { href: '/dashboard/trending', label: 'Trending Coins', icon: TrendingUp },
   ];
 
   return (
