@@ -6,7 +6,7 @@ import SystemStatus from '@/models/SystemStatus';
 import Wallet from '@/models/Wallet';
 import { SolanaService } from '@/bot/services/SolanaService';
 import { TransactionBuilder } from '@/bot/services/TransactionBuilder';
-import { getSolendPoolConfig } from '@/bot/config/solend-pools';
+import { getKaminoPoolConfig } from '@/bot/config/kamino-pools';
 import FlashLoanTrade from '@/models/FlashLoanTrade';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -49,7 +49,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
 
             try {
                 const keypair = Keypair.fromSecretKey(bs58.decode(walletDoc.privateKey));
-                const poolConfig = getSolendPoolConfig(mint);
+                const poolConfig = getKaminoPoolConfig(mint);
                 const latestJitoTipLamports = await SolanaService.getDynamicJitoTip();
                 
                 // Fetch swap instructions
@@ -68,7 +68,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
                     instructionsBRes,
                     usdcAta,
                     poolConfig,
-                    'solend'
+                    'kamino'
                 );
 
                 if (result) {
