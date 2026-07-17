@@ -22,7 +22,8 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     return NextResponse.json({ 
       botOnline, 
       lastHeartbeat: status?.botLastHeartbeat,
-      botMode: status?.botMode || 'simulated'
+      botMode: status?.botMode || 'simulated',
+      connectionMode: status?.connectionMode || 'rpc'
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -32,19 +33,33 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 export const PUT = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { botMode } = await req.json();
+    const { botMode, connectionMode } = await req.json();
 
-    if (botMode !== 'simulated' && botMode !== 'live') {
-      return NextResponse.json({ error: 'Invalid botMode' }, { status: 400 });
+    const updateData: any = {};
+    if (botMode !== undefined) {
+      if (botMode !== 'simulated' && botMode !== 'live') {
+        return NextResponse.json({ error: 'Invalid botMode' }, { status: 400 });
+      }
+      updateData.botMode = botMode;
+    }
+
+    if (connectionMode !== undefined) {
+      if (connectionMode !== 'rpc' && connectionMode !== 'wss') {
+        return NextResponse.json({ error: 'Invalid connectionMode' }, { status: 400 });
+      }
+      updateData.connectionMode = connectionMode;
     }
 
     const status = await SystemStatus.findOneAndUpdate(
       { id: 'global' },
-      { botMode },
+      updateData,
       { upsert: true, new: true }
     );
     
-    return NextResponse.json({ botMode: status.botMode });
+    return NextResponse.json({ 
+      botMode: status.botMode,
+      connectionMode: status.connectionMode 
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

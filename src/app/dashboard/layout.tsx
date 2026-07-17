@@ -11,6 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [user, setUser] = useState<{name: string, email: string} | null>(null);
   const [botMode, setBotMode] = useState<'simulated' | 'live'>('simulated');
+  const [connectionMode, setConnectionMode] = useState<'rpc' | 'wss'>('rpc');
   const [botOnline, setBotOnline] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(res => res.json())
       .then(data => {
         if (data.botMode) setBotMode(data.botMode);
+        if (data.connectionMode) setConnectionMode(data.connectionMode);
         if (data.botOnline !== undefined) setBotOnline(data.botOnline);
       })
       .catch(console.error);
@@ -49,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then(res => res.json())
         .then(data => {
           if (data.botMode) setBotMode(data.botMode);
+          if (data.connectionMode) setConnectionMode(data.connectionMode);
           if (data.botOnline !== undefined) setBotOnline(data.botOnline);
         })
         .catch(console.error);
@@ -72,6 +75,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (res.ok) {
         const data = await res.json();
         setBotMode(data.botMode);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  const toggleConnectionMode = async () => {
+    setLoadingStatus(true);
+    const newMode = connectionMode === 'rpc' ? 'wss' : 'rpc';
+    try {
+      const res = await fetch('/api/system/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ connectionMode: newMode })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConnectionMode(data.connectionMode);
       }
     } catch (err) {
       console.error(err);
@@ -181,6 +207,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   botMode === 'live' ? 'left-3' : 'left-9'
                 )}>
                   {botMode === 'live' ? 'LIVE (DANGER)' : 'SIMULATED'}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 ml-2">
+              <span className="text-sm font-medium text-slate-400">Connection:</span>
+              <button
+                onClick={toggleConnectionMode}
+                disabled={loadingStatus}
+                className={clsx(
+                  "relative inline-flex h-8 items-center rounded-full w-24 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900",
+                  connectionMode === 'wss' ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-slate-600 hover:bg-slate-700',
+                  loadingStatus && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <span className="sr-only">Toggle Connection Mode</span>
+                <span
+                  className={clsx(
+                    "inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center",
+                    connectionMode === 'wss' ? 'translate-x-[4.5rem]' : 'translate-x-1'
+                  )}
+                >
+                  <Activity className={clsx("w-3 h-3", connectionMode === 'wss' ? "text-indigo-500" : "text-slate-600")} />
+                </span>
+                <span className={clsx(
+                  "absolute text-xs font-bold text-white transition-opacity",
+                  connectionMode === 'wss' ? 'left-3' : 'left-7'
+                )}>
+                  {connectionMode === 'wss' ? 'WSS' : 'RPC'}
                 </span>
               </button>
             </div>

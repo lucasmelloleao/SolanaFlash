@@ -57,16 +57,19 @@ export class DatabaseService {
         return null;
     }
 
-    static async updateHeartbeatAndGetStatus(): Promise<{ botMode: string }> {
+    static async updateHeartbeatAndGetStatus(): Promise<{ botMode: string, connectionMode: string }> {
         try {
             const status = await SystemStatus.findOneAndUpdate(
                 { id: 'global' },
                 { botLastHeartbeat: new Date() },
                 { upsert: true, returnDocument: 'after' }
             );
-            return { botMode: status?.botMode || 'simulated' };
+            return { 
+                botMode: status?.botMode || 'simulated',
+                connectionMode: status?.connectionMode || 'rpc'
+            };
         } catch (error) {
-            return { botMode: 'simulated' };
+            return { botMode: 'simulated', connectionMode: 'rpc' };
         }
     }
 }

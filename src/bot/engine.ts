@@ -15,6 +15,7 @@ const logger = {
 };
 
 let botMode = 'simulated';
+let connectionMode = 'rpc';
 let isAnalyzing = false;
 let globalPenaltyMs = 0;
 let lastExecutionTime = 0;
@@ -205,6 +206,51 @@ async function runArbitrageCycle() {
     }
 }
 
+let engineIntervalId: NodeJS.Timeout | null = null;
+let wssSubscriptionId: number | null = null;
+let wssConnectionInstance: any = null;
+
+async function restartExecutionEngine() {
+    // Limpa execuções atuais
+    if (engineIntervalId) {
+        clearInterval(engineIntervalId);
+        engineIntervalId = null;
+    }
+    if (wssSubscriptionId !== null && wssConnectionInstance) {
+        try {
+            await wssConnectionInstance.removeSlotChangeListener(wssSubscriptionId);
+        } catch(e) {}
+        wssSubscriptionId = null;
+    }
+
+    if (connectionMode === 'wss') {
+        console.log(`\n🔌 Motor WSS ativado (Subscrevendo a eventos de slot).`);
+        try {
+            wssConnectionInstance = await SolanaService.getWssConnection();
+            wssSubscriptionId = wssConnectionInstance.onSlotChange((slot: any) => {
+                if (cachedStrategies.length > 0) {
+                    runArbitrageCycle().catch(err => {
+                        console.error('\n❌ Erro no ciclo WSS:', err);
+                    });
+                }
+            });
+        } catch (error) {
+            console.error("❌ Falha ao ativar WSS, voltando para RPC.", error);
+            connectionMode = 'rpc';
+            restartExecutionEngine();
+        }
+    } else {
+        console.log(`\n🔌 Motor RPC ativado (Polling a cada ${MIN_INTERVAL_MS}ms).`);
+        engineIntervalId = setInterval(() => {
+            if (cachedStrategies.length > 0) {
+                runArbitrageCycle().catch(err => {
+                    console.error('\n❌ Erro no ciclo RPC:', err);
+                });
+            }
+        }, MIN_INTERVAL_MS);
+    }
+}
+
 async function startEngine() {
     console.log('\n=============================================');
     console.log('🚀 INICIANDO MOTOR DE ARBITRAGEM (V2 - WS/SOLID)');
@@ -216,35 +262,31 @@ async function startEngine() {
         // Initial Fetch for botMode and State
         const status = await DatabaseService.updateHeartbeatAndGetStatus();
         botMode = status.botMode;
+        connectionMode = status.connectionMode;
 
         await reloadState();
 
         // Heartbeat & Status fetch
         setInterval(async () => {
             const status = await DatabaseService.updateHeartbeatAndGetStatus();
-            botMode = status.botMode;
+            
+            if (status.botMode !== botMode) {
+                 botMode = status.botMode;
+                 console.log(`\n⚙️ Modo do Bot alterado para: ${botMode}`);
+            }
+
+            if (status.connectionMode !== connectionMode) {
+                 connectionMode = status.connectionMode;
+                 console.log(`\n⚙️ Modo de Conexão alterado para: ${connectionMode}. Reiniciando motor...`);
+                 restartExecutionEngine();
+            }
 
             latestJitoTipLamports = await SolanaService.getDynamicJitoTip();
             cachedSolPriceUsdc = await QuoteService.fetchSolPriceUsdc();
             await reloadState();
         }, 15000);
 
-        // WebSockets Event-Driven Execution
-        const wssConnection = await SolanaService.getWssConnection();
-        console.log(`🔌 Conectado ao WebSocket da Solana (WSS). Aguardando slots...`);
-
-        wssConnection.onSlotChange((slotInfo) => {
-            if (cachedStrategies.length === 0) {
-                // Do not clutter output on every slot if no strategies
-                return;
-            }
-
-            // Trigger the arbitrage cycle on every new block (slot)
-            // The runArbitrageCycle function will naturally throttle itself to MIN_INTERVAL_MS
-            runArbitrageCycle().catch(err => {
-                console.error('\n❌ Erro no ciclo WS:', err);
-            });
-        });
+        await restartExecutionEngine();
 
     } catch (err) {
         console.error('❌ Falha ao iniciar:', err);

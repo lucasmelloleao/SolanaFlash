@@ -12,7 +12,7 @@ export class SolanaService {
     static async getConnection(): Promise<Connection> {
         if (!globalConnection) {
             let rpcUrl = process.env.SOLANA_RPC_URL;
-            if (process.env.SHYFT_API_KEY) {
+            if (!rpcUrl && process.env.SHYFT_API_KEY) {
                 rpcUrl = `https://rpc.shyft.to?api_key=${process.env.SHYFT_API_KEY}`;
             } else if (!rpcUrl) {
                 rpcUrl = 'https://api.mainnet-beta.solana.com';
@@ -30,7 +30,7 @@ export class SolanaService {
                 return this.getConnection(); // Fallback if wss is missing
             }
             let rpcUrl = process.env.SOLANA_RPC_URL;
-            if (process.env.SHYFT_API_KEY) {
+            if (!rpcUrl && process.env.SHYFT_API_KEY) {
                 rpcUrl = `https://rpc.shyft.to?api_key=${process.env.SHYFT_API_KEY}`;
             } else if (!rpcUrl) {
                 rpcUrl = 'https://api.mainnet-beta.solana.com';
@@ -93,7 +93,7 @@ export class SolanaService {
                 }
             }
         }
-        
+
         return lookupTableAccounts;
     }
 
