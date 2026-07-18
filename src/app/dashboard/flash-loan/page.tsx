@@ -339,7 +339,7 @@ export default function FlashLoanPage() {
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Lending Prov.</p>
                 <p className="text-sm font-semibold text-indigo-400 capitalize">
-                  {strat.lendingProvider === 'kamino' ? 'Kamino' : 'Solend'} 
+                  {strat.lendingProvider === 'kamino' ? 'Kamino' : strat.lendingProvider === 'none' ? 'Recursos Próprios' : 'Solend'} 
                 </p>
               </div>
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
@@ -387,6 +387,7 @@ export default function FlashLoanPage() {
               <select value={lendingProvider} onChange={e => setLendingProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                 <option value="solend">Solend (Main Pool)</option>
                 <option value="kamino">Kamino Finance (K-Lend)</option>
+                <option value="none">Recursos Próprios (Sem Flash Loan)</option>
               </select>
             </div>
           </div>
@@ -434,6 +435,7 @@ export default function FlashLoanPage() {
                   <select value={editingStrategy.lendingProvider} onChange={e => setEditingStrategy({...editingStrategy, lendingProvider: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                     <option value="solend">Solend</option>
                     <option value="kamino">Kamino</option>
+                    <option value="none">Recursos Próprios</option>
                   </select>
                 </div>
                 <div>
