@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle, Pencil, Activity } from 'lucide-react';
+import { Plus, Trash2, Zap, Settings, Play, Pause, AlertTriangle, Pencil, Activity, Clock, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
 import clsx from 'clsx';
 
 const KNOWN_TOKENS = [
@@ -28,10 +28,27 @@ type Strategy = {
   provider: string;
   lendingProvider: string;
   active: boolean;
+  walletId?: string;
+}
+
+type FlashLoanTrade = {
+  _id: string;
+  tokenBorrowed: string;
+  amountBorrowed: number;
+  expectedProfit: number;
+  actualProfit: number;
+  flashLoanFee: number;
+  gasFee: number;
+  status: string;
+  txid?: string;
+  jitoBundleId?: string;
+  errorMessage?: string;
+  createdAt: string;
 }
 
 export default function FlashLoanPage() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [trades, setTrades] = useState<FlashLoanTrade[]>([]);
   const [name, setName] = useState('');
   const [tokenBMint, setTokenBMint] = useState(KNOWN_TOKENS[0].mint);
   const [borrowAmount, setBorrowAmount] = useState('');
@@ -46,12 +63,24 @@ export default function FlashLoanPage() {
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState('');
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const fetchStrategies = async () => {
     const res = await fetch('/api/strategies', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
     if (res.ok) setStrategies(await res.json());
+  };
+
+  const fetchTrades = async () => {
+    try {
+      const res = await fetch('/api/flash-loan/trades', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) setTrades(await res.json());
+    } catch (err) {
+      console.error('Error fetching trades:', err);
+    }
   };
 
   const fetchWallets = async () => {
@@ -85,7 +114,11 @@ export default function FlashLoanPage() {
     fetchStrategies(); 
     fetchWallets();
     checkBotStatus();
-    const interval = setInterval(checkBotStatus, 15000);
+    fetchTrades();
+    const interval = setInterval(() => {
+      checkBotStatus();
+      fetchTrades();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -150,6 +183,7 @@ export default function FlashLoanPage() {
     if (res.ok) {
       setName(''); setTokenBMint(KNOWN_TOKENS[0].mint); setBorrowAmount(''); setMinProfitUsdc('0'); setLendingProvider('solend');
       fetchStrategies();
+      setIsFormOpen(false);
     }
   };
 
@@ -167,7 +201,8 @@ export default function FlashLoanPage() {
         provider: editingStrategy.provider,
         lendingProvider: editingStrategy.lendingProvider,
         tokenBMint: editingStrategy.tokenBMint,
-        tokenBSymbol: tokenObj?.symbol || 'UNKNOWN'
+        tokenBSymbol: tokenObj?.symbol || 'UNKNOWN',
+        walletId: editingStrategy.walletId
       })
     });
     if (res.ok) {
@@ -196,9 +231,20 @@ export default function FlashLoanPage() {
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-          Flash Loan Arbitrage
-        </h3>
+        <div className="flex items-center gap-4">
+          <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+            Flash Loan Arbitrage
+          </h3>
+          <button 
+            onClick={() => setIsFormOpen(!isFormOpen)} 
+            className={clsx(
+              "px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm",
+              isFormOpen ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-indigo-600 text-white hover:bg-indigo-700"
+            )}
+          >
+            {isFormOpen ? 'Cancelar' : <><Plus className="w-4 h-4" /> Nova estratégia</>}
+          </button>
+        </div>
         
         {/* Flash Loan Engine Controls */}
         <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 py-2 px-4 rounded-xl">
@@ -339,7 +385,7 @@ export default function FlashLoanPage() {
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Lending Prov.</p>
                 <p className="text-sm font-semibold text-indigo-400 capitalize">
-                  {strat.lendingProvider === 'kamino' ? 'Kamino' : 'Solend'} 
+                  {strat.lendingProvider === 'kamino' ? 'Kamino' : strat.lendingProvider === 'none' ? 'Recursos Próprios' : 'Solend'} 
                 </p>
               </div>
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
@@ -353,6 +399,7 @@ export default function FlashLoanPage() {
         ))}
       </div>
 
+      {isFormOpen && (
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm max-w-2xl">
         <h4 className="text-lg font-medium text-white mb-6 flex items-center gap-2">
           <Settings className="w-5 h-5 text-indigo-500" /> Configure New Strategy
@@ -387,6 +434,7 @@ export default function FlashLoanPage() {
               <select value={lendingProvider} onChange={e => setLendingProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                 <option value="solend">Solend (Main Pool)</option>
                 <option value="kamino">Kamino Finance (K-Lend)</option>
+                <option value="none">Recursos Próprios (Sem Flash Loan)</option>
               </select>
             </div>
           </div>
@@ -416,6 +464,88 @@ export default function FlashLoanPage() {
           </button>
         </form>
       </div>
+      )}
+
+      <div className="mt-8 bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm">
+        <h4 className="text-lg font-medium text-white mb-6 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-indigo-500" /> Recent Arbitrage Operations
+        </h4>
+        
+        {trades.length === 0 ? (
+          <div className="p-8 border border-dashed border-slate-700 rounded-xl text-center text-slate-500">
+            No operations found. Deployed strategies will record executed trades here.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-400 uppercase bg-slate-950 border-b border-slate-800">
+                <tr>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Borrowed</th>
+                  <th className="px-4 py-3">Fee</th>
+                  <th className="px-4 py-3">Expected Profit</th>
+                  <th className="px-4 py-3">Actual Profit</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Explorer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trades.map(trade => (
+                  <tr key={trade._id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
+                    <td className="px-4 py-3 text-slate-300 font-mono text-xs">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-slate-500" />
+                        {new Date(trade.createdAt).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {new Date(trade.createdAt).toLocaleDateString('pt-BR')}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-white font-mono">
+                      ${trade.amountBorrowed.toLocaleString()} <span className="text-indigo-400 text-xs">{trade.tokenBorrowed}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                      ${trade.flashLoanFee.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-emerald-400 font-mono font-semibold">
+                      +${trade.expectedProfit.toFixed(4)}
+                    </td>
+                    <td className="px-4 py-3 font-mono font-semibold">
+                      {trade.actualProfit > 0 ? (
+                        <span className="text-emerald-400">+${trade.actualProfit.toFixed(4)}</span>
+                      ) : trade.status === 'success' ? (
+                        <span className="text-emerald-400">+${trade.expectedProfit.toFixed(4)}</span>
+                      ) : (
+                        <span className="text-slate-500">$0.0000</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {trade.status === 'success' && <span className="text-emerald-400 text-xs font-bold uppercase bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Success</span>}
+                      {trade.status === 'failed' && <span className="text-red-400 text-xs font-bold uppercase bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20" title={trade.errorMessage}>Failed</span>}
+                      {trade.status === 'pending' && <span className="text-amber-400 text-xs font-bold uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 animate-pulse">Pending</span>}
+                      {trade.status === 'simulated' && <span className="text-sky-400 text-xs font-bold uppercase bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">Simulated</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {trade.txid ? (
+                        <a 
+                          href={`https://solscan.io/tx/${trade.txid}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-1 text-slate-400 hover:text-indigo-400 transition-colors bg-slate-800/50 hover:bg-slate-800 px-2 py-1 rounded text-xs"
+                        >
+                          View <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <span className="text-slate-500 text-xs font-mono">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {editingStrategy && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
@@ -430,13 +560,25 @@ export default function FlashLoanPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm text-slate-400 mb-1">Execution Wallet</label>
+                  <select value={editingStrategy.walletId || ''} onChange={e => setEditingStrategy({...editingStrategy, walletId: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
+                    <option value="" disabled>Select a wallet</option>
+                    {wallets.map(w => (
+                      <option key={w._id} value={w._id}>{w.acronym} - {w.publicKey.substring(0,6)}...{w.publicKey.substring(w.publicKey.length-4)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm text-slate-400 mb-1">Lending Provider</label>
                   <select value={editingStrategy.lendingProvider} onChange={e => setEditingStrategy({...editingStrategy, lendingProvider: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                     <option value="solend">Solend</option>
                     <option value="kamino">Kamino</option>
+                    <option value="none">Recursos Próprios</option>
                   </select>
                 </div>
-                <div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
                   <label className="block text-sm text-slate-400 mb-1">DEX Provider</label>
                   <select value={editingStrategy.provider} onChange={e => setEditingStrategy({...editingStrategy, provider: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 appearance-none">
                     <option value="jupiter">Jupiter</option>
