@@ -193,8 +193,8 @@ export default function WalletsPage() {
         <h3 className="text-2xl font-bold text-white">Registered Wallets</h3>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden mb-8 shadow-sm">
-        <table className="w-full text-left text-sm">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto mb-8 shadow-sm">
+        <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
           <thead className="bg-slate-900/50 border-b border-slate-800 text-slate-400">
             <tr>
               <th className="px-6 py-4 font-medium">Acronym</th>

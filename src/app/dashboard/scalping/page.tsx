@@ -278,55 +278,65 @@ export default function ScalpingPage() {
                   {strat.symbol}
                 </p>
                 {strat.currentTrend && (
-                  <div className="mt-3 bg-slate-950 rounded-lg p-2.5 border border-slate-800/60 shadow-inner flex flex-col gap-1.5">
-                    <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-500">EMA9/21</span>
-                      <span className={clsx("font-bold", strat.currentTrend.isUptrend ? "text-emerald-400" : "text-red-400")}>
-                        {strat.currentTrend.ema9?.toFixed(2)} / {strat.currentTrend.ema21?.toFixed(2)}
-                      </span>
+                  <div className="mt-3 flex flex-col md:flex-row w-full gap-3 md:h-[250px]">
+                    <div className="w-full md:w-[180px] shrink-0 bg-slate-950 rounded-lg p-2.5 border border-slate-800/60 shadow-inner flex flex-col justify-between h-[200px] md:h-auto">
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">EMA9/21</span>
+                        <span className={clsx("font-bold", strat.currentTrend.isUptrend ? "text-emerald-400" : "text-red-400")}>
+                          {strat.currentTrend.ema9?.toFixed(2)} / {strat.currentTrend.ema21?.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">RSI (14)</span>
+                        <span className={clsx(
+                          "font-bold",
+                          strat.currentTrend.rsi >= 70 ? "text-red-400" : "text-emerald-400"
+                        )}>
+                          {strat.currentTrend.rsi?.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">Spread</span>
+                        <span className={clsx(
+                          "font-bold",
+                          (strat.currentTrend.spreadPct >= strat.takeProfitPercentage || strat.currentTrend.spreadPct >= strat.stopLossPercentage || (strat.maxSpreadPercentage !== undefined && strat.currentTrend.spreadPct >= strat.maxSpreadPercentage)) ? "text-red-400" : "text-emerald-400"
+                        )}>
+                          {strat.currentTrend.spreadPct?.toFixed(3)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">VWAP</span>
+                        <span className="font-bold text-indigo-400">
+                          {strat.currentTrend.vwap ? strat.currentTrend.vwap.toFixed(2) : '--'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">ATR</span>
+                        <span className="font-bold text-orange-400">
+                          {strat.currentTrend.atr ? strat.currentTrend.atr.toFixed(4) : '--'}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-center gap-1.5">
+                        {strat.currentTrend.isUptrend ? (
+                          <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 text-red-500" />
+                        )}
+                        <span className={clsx(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          strat.currentTrend.isUptrend && strat.currentTrend.rsi < 70 ? "text-emerald-500" : "text-red-500"
+                        )}>
+                          {strat.currentTrend.statusMessage}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-500">RSI (14)</span>
-                      <span className={clsx(
-                        "font-bold",
-                        strat.currentTrend.rsi >= 70 ? "text-red-400" : "text-emerald-400"
-                      )}>
-                        {strat.currentTrend.rsi?.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-500">Spread</span>
-                      <span className={clsx(
-                        "font-bold",
-                        (strat.currentTrend.spreadPct >= strat.takeProfitPercentage || strat.currentTrend.spreadPct >= strat.stopLossPercentage || (strat.maxSpreadPercentage !== undefined && strat.currentTrend.spreadPct >= strat.maxSpreadPercentage)) ? "text-red-400" : "text-emerald-400"
-                      )}>
-                        {strat.currentTrend.spreadPct?.toFixed(3)}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-500">VWAP</span>
-                      <span className="font-bold text-indigo-400">
-                        {strat.currentTrend.vwap ? strat.currentTrend.vwap.toFixed(2) : '--'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] font-mono">
-                      <span className="text-slate-500">ATR</span>
-                      <span className="font-bold text-orange-400">
-                        {strat.currentTrend.atr ? strat.currentTrend.atr.toFixed(4) : '--'}
-                      </span>
-                    </div>
-                    <div className="mt-1 pt-1 border-t border-slate-800 flex items-center justify-center gap-1.5">
-                      {strat.currentTrend.isUptrend ? (
-                        <TrendingUp className="w-3 h-3 text-emerald-500" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3 text-red-500" />
-                      )}
-                      <span className={clsx(
-                        "text-[10px] font-bold uppercase tracking-wider",
-                        strat.currentTrend.isUptrend && strat.currentTrend.rsi < 70 ? "text-emerald-500" : "text-red-500"
-                      )}>
-                        {strat.currentTrend.statusMessage}
-                      </span>
+                    
+                    <div className="flex-1 min-w-0 bg-slate-950 rounded-lg border border-slate-800/60 shadow-inner overflow-hidden h-[300px] md:h-full">
+                      <iframe 
+                        src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE%3A${encodeURIComponent(strat.symbol.replace('/', '').replace('USDC', 'USDT'))}&interval=1&theme=dark&style=1&timezone=Etc%2FUTC&hide_top_toolbar=1&hide_legend=1&save_image=0`}
+                        className="w-full h-full border-0"
+                        scrolling="no" 
+                      />
                     </div>
                   </div>
                 )}
@@ -343,7 +353,7 @@ export default function ScalpingPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-5 gap-4 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mt-4">
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Trade Size</p>
                 <p className="text-sm font-semibold text-emerald-400">${strat.tradeSize.toLocaleString()}</p>
@@ -380,7 +390,7 @@ export default function ScalpingPage() {
           <Settings className="w-5 h-5 text-indigo-500" /> Configure New CEX Scalping Strategy
         </h4>
         <form onSubmit={handleAdd} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-slate-400 mb-1">Strategy Name</label>
               <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="e.g. MEXC SOL Scalp" />
@@ -401,7 +411,7 @@ export default function ScalpingPage() {
             <input required type="text" value={symbol} onChange={e => setSymbol(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="e.g. SOL/USDT" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-slate-400 mb-1">Trade Size</label>
               <input required type="number" value={tradeSize} onChange={e => setTradeSize(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="100" />
@@ -498,6 +508,7 @@ export default function ScalpingPage() {
                   <th className="px-4 py-3">Time</th>
                   <th className="px-4 py-3">Strategy</th>
                   <th className="px-4 py-3">Symbol</th>
+                  <th className="px-4 py-3">Size</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Entry</th>
                   <th className="px-4 py-3 text-right">Exit</th>
@@ -505,17 +516,38 @@ export default function ScalpingPage() {
                 </tr>
               </thead>
               <tbody>
-                {trades.map(trade => (
+                {trades.map(trade => {
+                  const usdPnl = (trade.exitPrice && trade.entryPrice && trade.amount) ? ((trade.exitPrice - trade.entryPrice) * trade.amount) : 0;
+                  return (
                   <tr key={trade._id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                    <td className="px-4 py-3 text-slate-300 font-mono text-xs flex items-center gap-2">
-                      <Clock className="w-3 h-3 text-slate-500" />
-                      {new Date(trade.createdAt).toLocaleTimeString()}
+                    <td className="px-4 py-3 text-slate-300 font-mono text-xs">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1 text-slate-400" title="Intent Created">
+                          <Clock className="w-3 h-3 opacity-50" />
+                          {new Date(trade.createdAt).toLocaleTimeString()}
+                        </div>
+                        {trade.entryTime && (
+                          <div className="flex items-center gap-1 text-sky-400" title="Entry Executed">
+                            <Clock className="w-3 h-3" />
+                            {new Date(trade.entryTime).toLocaleTimeString()}
+                          </div>
+                        )}
+                        {trade.exitTime && (
+                          <div className="flex items-center gap-1 text-emerald-400" title="Exit Executed">
+                            <Clock className="w-3 h-3" />
+                            {new Date(trade.exitTime).toLocaleTimeString()}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-white font-medium">
                       {trade.strategyId?.name || 'Unknown'}
                     </td>
                     <td className="px-4 py-3 text-slate-300 font-mono text-xs">
                       {trade.symbol}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300 font-mono text-xs">
+                      {trade.amount}
                     </td>
                     <td className="px-4 py-3">
                       {trade.status === 'success' && <span className="text-emerald-400 text-xs font-bold uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Success</span>}
@@ -533,19 +565,26 @@ export default function ScalpingPage() {
                       {trade.pnl > 0 ? (
                         <>
                           <TrendingUp className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">+{trade.pnl.toFixed(4)}%</span>
+                          <div className="flex flex-col items-end leading-none">
+                            <span className="text-emerald-400">+{trade.pnl.toFixed(4)}%</span>
+                            {usdPnl !== 0 && <span className="text-[10px] text-emerald-500/70 mt-1">+${usdPnl.toFixed(4)}</span>}
+                          </div>
                         </>
                       ) : trade.pnl < 0 ? (
                         <>
                           <TrendingDown className="w-3 h-3 text-red-400" />
-                          <span className="text-red-400">{trade.pnl.toFixed(4)}%</span>
+                          <div className="flex flex-col items-end leading-none">
+                            <span className="text-red-400">{trade.pnl.toFixed(4)}%</span>
+                            {usdPnl !== 0 && <span className="text-[10px] text-red-500/70 mt-1">-${Math.abs(usdPnl).toFixed(4)}</span>}
+                          </div>
                         </>
                       ) : (
                         <span className="text-slate-500">-</span>
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
