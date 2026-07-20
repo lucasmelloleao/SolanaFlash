@@ -33,9 +33,21 @@ type ScalpingStrategy = {
   tradeSize: number;
   takeProfitPercentage: number;
   stopLossPercentage: number;
+  maxSpreadPercentage: number;
   maxPositionTimeMs: number;
   bufferPercentage: number;
   active: boolean;
+  currentTrend?: {
+    isUptrend: boolean;
+    rsi: number;
+    spreadPct: number;
+    ema9: number;
+    ema21: number;
+    vwap?: number;
+    atr?: number;
+    statusMessage: string;
+    lastUpdate: string;
+  };
 };
 
 export default function ScalpingPage() {
@@ -45,6 +57,7 @@ export default function ScalpingPage() {
   const [tradeSize, setTradeSize] = useState('100');
   const [takeProfitPercentage, setTakeProfitPercentage] = useState('0.08');
   const [stopLossPercentage, setStopLossPercentage] = useState('0.05');
+  const [maxSpreadPercentage, setMaxSpreadPercentage] = useState('0.1');
   const [maxPositionTimeMs, setMaxPositionTimeMs] = useState('30000');
   const [bufferPercentage, setBufferPercentage] = useState('0.01');
 
@@ -54,6 +67,7 @@ export default function ScalpingPage() {
   
   const [botOnline, setBotOnline] = useState<boolean>(false);
   const [trades, setTrades] = useState<ScalpingTrade[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const fetchTrades = async () => {
@@ -63,6 +77,16 @@ export default function ScalpingPage() {
     if (res.ok) {
       const data = await res.json();
       setTrades(data);
+    }
+  };
+
+  const fetchStats = async () => {
+    const res = await fetch('/api/scalping/stats', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStats(data);
     }
   };
 
@@ -107,9 +131,11 @@ export default function ScalpingPage() {
     
     fetchBotStatus();
     fetchTrades();
+    fetchStats();
     const statusInterval = setInterval(() => {
         fetchBotStatus();
         fetchTrades();
+        fetchStats();
         fetchStrategies();
     }, 5000);
     
@@ -132,12 +158,13 @@ export default function ScalpingPage() {
         tradeSize: Number(tradeSize), 
         takeProfitPercentage: Number(takeProfitPercentage), 
         stopLossPercentage: Number(stopLossPercentage),
+        maxSpreadPercentage: Number(maxSpreadPercentage),
         maxPositionTimeMs: Number(maxPositionTimeMs),
         bufferPercentage: Number(bufferPercentage)
       })
     });
     if (res.ok) {
-      setName(''); setSymbol('SOL/USDT'); setTradeSize('100'); setTakeProfitPercentage('0.08'); setStopLossPercentage('0.05'); setMaxPositionTimeMs('30000'); setBufferPercentage('0.01');
+      setName(''); setSymbol('SOL/USDT'); setTradeSize('100'); setTakeProfitPercentage('0.08'); setStopLossPercentage('0.05'); setMaxSpreadPercentage('0.1'); setMaxPositionTimeMs('30000'); setBufferPercentage('0.01');
       fetchStrategies();
       setIsFormOpen(false);
     }
@@ -154,6 +181,7 @@ export default function ScalpingPage() {
         tradeSize: editingStrategy.tradeSize, 
         takeProfitPercentage: editingStrategy.takeProfitPercentage,
         stopLossPercentage: editingStrategy.stopLossPercentage,
+        maxSpreadPercentage: editingStrategy.maxSpreadPercentage,
         maxPositionTimeMs: editingStrategy.maxPositionTimeMs,
         bufferPercentage: editingStrategy.bufferPercentage,
         symbol: editingStrategy.symbol.toUpperCase()
@@ -270,9 +298,21 @@ export default function ScalpingPage() {
                       <span className="text-slate-500">Spread</span>
                       <span className={clsx(
                         "font-bold",
-                        (strat.currentTrend.spreadPct >= strat.takeProfitPercentage || strat.currentTrend.spreadPct >= strat.stopLossPercentage) ? "text-red-400" : "text-emerald-400"
+                        (strat.currentTrend.spreadPct >= strat.takeProfitPercentage || strat.currentTrend.spreadPct >= strat.stopLossPercentage || (strat.maxSpreadPercentage !== undefined && strat.currentTrend.spreadPct >= strat.maxSpreadPercentage)) ? "text-red-400" : "text-emerald-400"
                       )}>
                         {strat.currentTrend.spreadPct?.toFixed(3)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-mono">
+                      <span className="text-slate-500">VWAP</span>
+                      <span className="font-bold text-indigo-400">
+                        {strat.currentTrend.vwap ? strat.currentTrend.vwap.toFixed(2) : '--'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-mono">
+                      <span className="text-slate-500">ATR</span>
+                      <span className="font-bold text-orange-400">
+                        {strat.currentTrend.atr ? strat.currentTrend.atr.toFixed(4) : '--'}
                       </span>
                     </div>
                     <div className="mt-1 pt-1 border-t border-slate-800 flex items-center justify-center gap-1.5">
@@ -321,6 +361,10 @@ export default function ScalpingPage() {
                 <p className="text-sm font-semibold text-orange-400">{(strat.maxPositionTimeMs / 1000).toFixed(0)}s</p>
               </div>
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
+                <p className="text-xs text-slate-500 mb-1">Max Spread</p>
+                <p className="text-sm font-semibold text-purple-400">{strat.maxSpreadPercentage ?? 0.1}%</p>
+              </div>
+              <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Buffer</p>
                 <p className="text-sm font-semibold text-indigo-400">{strat.bufferPercentage}%</p>
               </div>
@@ -367,6 +411,10 @@ export default function ScalpingPage() {
               <input required type="number" step="0.01" value={takeProfitPercentage} onChange={e => setTakeProfitPercentage(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="0.08" />
             </div>
             <div>
+              <label className="block text-sm text-slate-400 mb-1">Max Spread (%)</label>
+              <input required type="number" step="0.01" value={maxSpreadPercentage} onChange={e => setMaxSpreadPercentage(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="0.1" />
+            </div>
+            <div>
               <label className="block text-sm text-slate-400 mb-1">Stop Loss (%)</label>
               <input required type="number" step="0.01" value={stopLossPercentage} onChange={e => setStopLossPercentage(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="0.05" />
             </div>
@@ -385,6 +433,52 @@ export default function ScalpingPage() {
           </button>
         </form>
       </div>
+      )}
+
+      {/* DASHBOARD DE ESTATÍSTICAS */}
+      {stats && (
+        <div className="mt-8 mb-8">
+          <h4 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-500" /> Performance Overview
+          </h4>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Total Operations</p>
+              <p className="text-2xl font-bold text-white">{stats.totalOperations}</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Success / Failed</p>
+              <div className="flex items-center gap-2">
+                <p className="text-2xl font-bold text-emerald-400">{stats.successfulOperations}</p>
+                <span className="text-slate-600">/</span>
+                <p className="text-xl font-semibold text-red-400">{stats.failedOperations}</p>
+              </div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Net Accumulated PnL</p>
+              <p className={clsx("text-2xl font-bold", stats.totalPnlPercentage >= 0 ? "text-emerald-400" : "text-red-400")}>
+                {stats.totalPnlPercentage > 0 ? '+' : ''}{stats.totalPnlPercentage.toFixed(4)}%
+              </p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm overflow-y-auto max-h-[88px] custom-scrollbar">
+              <p className="text-sm text-slate-400 mb-2">PnL by Symbol</p>
+              <div className="space-y-1">
+                {Object.keys(stats.profitBySymbol || {}).length === 0 ? (
+                  <p className="text-xs text-slate-500">No data</p>
+                ) : (
+                  Object.entries(stats.profitBySymbol).map(([sym, pnl]) => (
+                    <div key={sym} className="flex justify-between items-center text-sm">
+                      <span className="text-slate-300 font-mono text-xs">{sym}</span>
+                      <span className={clsx("font-semibold text-xs", (pnl as number) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        {(pnl as number) > 0 ? '+' : ''}{(pnl as number).toFixed(4)}%
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="mt-8 bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm">
@@ -486,6 +580,10 @@ export default function ScalpingPage() {
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Take Profit (%)</label>
                   <input type="number" step="0.01" value={editingStrategy.takeProfitPercentage} onChange={e => setEditingStrategy({...editingStrategy, takeProfitPercentage: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Max Spread (%)</label>
+                  <input type="number" step="0.01" value={editingStrategy.maxSpreadPercentage ?? 0.1} onChange={e => setEditingStrategy({...editingStrategy, maxSpreadPercentage: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
                 </div>
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Stop Loss (%)</label>

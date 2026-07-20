@@ -18,7 +18,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { name, exchangeKeyId, symbol, tradeSize, takeProfitPercentage, stopLossPercentage, maxPositionTimeMs, bufferPercentage } = await req.json();
+    const { name, exchangeKeyId, symbol, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, maxPositionTimeMs, bufferPercentage } = await req.json();
 
     if (!name || !exchangeKeyId || !symbol || !tradeSize || !takeProfitPercentage || !stopLossPercentage) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -32,6 +32,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       tradeSize: Number(tradeSize),
       takeProfitPercentage: Number(takeProfitPercentage),
       stopLossPercentage: Number(stopLossPercentage),
+      maxSpreadPercentage: maxSpreadPercentage !== undefined ? Number(maxSpreadPercentage) : 0.1,
       maxPositionTimeMs: maxPositionTimeMs ? Number(maxPositionTimeMs) : 30000,
       bufferPercentage: bufferPercentage ? Number(bufferPercentage) : 0.01
     });
@@ -45,7 +46,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
     const body = await req.json();
-    const { id, active, tradeSize, takeProfitPercentage, stopLossPercentage, name, exchangeKeyId, symbol, maxPositionTimeMs, bufferPercentage } = body;
+    const { id, active, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, name, exchangeKeyId, symbol, maxPositionTimeMs, bufferPercentage } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
@@ -56,6 +57,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     if (tradeSize !== undefined) updateData.tradeSize = Number(tradeSize);
     if (takeProfitPercentage !== undefined) updateData.takeProfitPercentage = Number(takeProfitPercentage);
     if (stopLossPercentage !== undefined) updateData.stopLossPercentage = Number(stopLossPercentage);
+    if (maxSpreadPercentage !== undefined) updateData.maxSpreadPercentage = Number(maxSpreadPercentage);
     if (maxPositionTimeMs !== undefined) updateData.maxPositionTimeMs = Number(maxPositionTimeMs);
     if (bufferPercentage !== undefined) updateData.bufferPercentage = Number(bufferPercentage);
     if (name !== undefined) updateData.name = name;

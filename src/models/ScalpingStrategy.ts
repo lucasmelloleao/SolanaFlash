@@ -17,6 +17,8 @@ const ScalpingStrategySchema = new mongoose.Schema({
     spreadPct: Number,
     ema9: Number,
     ema21: Number,
+    vwap: Number,
+    atr: Number,
     statusMessage: String,
     lastUpdate: Date
   }
