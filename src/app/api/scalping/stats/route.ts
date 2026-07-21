@@ -26,15 +26,30 @@ export async function GET(request: Request) {
         let successfulOperations = 0;
         let failedOperations = 0; // Negative PNL
         let totalPnlPercentage = 0;
+        let totalUsdPnl = 0;
         let profitBySymbol: Record<string, number> = {};
+        let statsBySymbol: Record<string, { profit: number; totalTrades: number; successfulTrades: number }> = {};
 
         trades.forEach(t => {
             if (t.status === 'success' || t.status === 'failed') {
                 totalOperations++;
                 const pnl = t.pnl || 0;
                 
+                let usdPnl = 0;
+                if (t.exitPrice && t.entryPrice && t.amount) {
+                    usdPnl = (t.exitPrice - t.entryPrice) * t.amount;
+                }
+                totalUsdPnl += usdPnl;
+
+                if (!statsBySymbol[t.symbol]) {
+                    statsBySymbol[t.symbol] = { profit: 0, totalTrades: 0, successfulTrades: 0 };
+                }
+
+                statsBySymbol[t.symbol].totalTrades++;
+                
                 if (pnl > 0) {
                     successfulOperations++;
+                    statsBySymbol[t.symbol].successfulTrades++;
                 } else if (pnl < 0) {
                     failedOperations++;
                 }
@@ -43,6 +58,7 @@ export async function GET(request: Request) {
 
                 if (!profitBySymbol[t.symbol]) profitBySymbol[t.symbol] = 0;
                 profitBySymbol[t.symbol] += pnl;
+                statsBySymbol[t.symbol].profit += pnl;
             }
         });
 
@@ -51,7 +67,9 @@ export async function GET(request: Request) {
             successfulOperations,
             failedOperations,
             totalPnlPercentage,
-            profitBySymbol
+            totalUsdPnl,
+            profitBySymbol,
+            statsBySymbol
         });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });

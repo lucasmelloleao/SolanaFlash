@@ -8,8 +8,11 @@ const ScalpingStrategySchema = new mongoose.Schema({
   tradeSize: { type: Number, required: true }, // Size in base currency or quote currency
   takeProfitPercentage: { type: Number, required: true },
   stopLossPercentage: { type: Number, required: true },
+  maxSpreadPercentage: { type: Number, default: 0.1 },
   maxPositionTimeMs: { type: Number, default: 30000 },
   bufferPercentage: { type: Number, default: 0.01 },
+  dailyLossLimit: { type: Number, default: 0 },
+  postLossCooldownMs: { type: Number, default: 300000 },
   active: { type: Boolean, default: true },
   currentTrend: {
     isUptrend: Boolean,
@@ -20,7 +23,11 @@ const ScalpingStrategySchema = new mongoose.Schema({
     vwap: Number,
     atr: Number,
     statusMessage: String,
-    lastUpdate: Date
+    lastUpdate: Date,
+    priceAction: {
+      recentResistance: Number,
+      distanceToResistancePct: Number
+    }
   }
 }, {
   timestamps: {

@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 type TokenBalance = {
   symbol: string;
   mint: string;
@@ -25,6 +33,8 @@ export default function DashboardOverview() {
   const [totalWallets, setTotalWallets] = useState(0);
   const [loading, setLoading] = useState(true);
   const [totalBalanceUsdc, setTotalBalanceUsdc] = useState<number | null>(null);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [cexBalances, setCexBalances] = useState<any[]>([]);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -96,7 +106,50 @@ export default function DashboardOverview() {
           });
           
           setWallets(walletsWithBalances);
-          setTotalBalanceUsdc(totalUsd);
+
+          // Fetch portfolio history
+          let latestCexTotalUsd = 0;
+          try {
+            const historyRes = await fetch('/api/portfolio/history', {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (historyRes.ok) {
+              const history = await historyRes.json();
+              const chartDataMap: Record<string, any> = {};
+              const latestCexMap: Record<string, any> = {};
+              
+              history.forEach((snapshot: any) => {
+                const dateObj = new Date(snapshot.timestamp);
+                dateObj.setSeconds(0, 0);
+                const timeKey = dateObj.getTime();
+                
+                if (!chartDataMap[timeKey]) {
+                  chartDataMap[timeKey] = {
+                    time: timeKey,
+                    formattedTime: dateObj.toLocaleString(),
+                    totalUsdValue: 0
+                  };
+                }
+                chartDataMap[timeKey].totalUsdValue += snapshot.totalUsdValue;
+                latestCexMap[snapshot.exchange] = snapshot;
+              });
+
+              Object.values(latestCexMap).forEach((snap: any) => {
+                 latestCexTotalUsd += snap.totalUsdValue;
+              });
+              setCexBalances(Object.values(latestCexMap));
+
+              const formattedChartData = Object.values(chartDataMap).sort((a: any, b: any) => a.time - b.time);
+              formattedChartData.forEach(d => {
+                 d.totalUsdValue += totalUsd;
+              });
+              setHistoryData(formattedChartData);
+            }
+          } catch(e) {
+            console.error("Failed to fetch portfolio history", e);
+          }
+
+          setTotalBalanceUsdc(totalUsd + latestCexTotalUsd);
 
         }
       } catch (err) {
@@ -119,8 +172,8 @@ export default function DashboardOverview() {
       <h3 className="text-2xl font-bold text-white mb-6">Overview</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl">
-          <p className="text-sm font-medium text-slate-400 mb-1">Total Wallets</p>
-          <p className="text-3xl font-bold text-white">{loading ? '...' : totalWallets}</p>
+          <p className="text-sm font-medium text-slate-400 mb-1">Wallets & Corretoras</p>
+          <p className="text-3xl font-bold text-white">{loading ? '...' : (wallets.length + cexBalances.length)}</p>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl">
           <p className="text-sm font-medium text-slate-400 mb-1">Total Balance</p>
@@ -134,6 +187,58 @@ export default function DashboardOverview() {
           <p className="text-3xl font-bold text-emerald-400">
             {loading ? '...' : `$${totalUsdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </p>
+        </div>
+      </div>
+
+      <h3 className="text-xl font-bold text-white mb-4">Evolução Patrimonial</h3>
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm mb-8">
+        <div style={{ width: '100%', height: '400px' }}>
+          {historyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={historyData}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorUsdMain" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="time" 
+                  tick={{ fill: '#64748b' }}
+                  tickFormatter={(val) => {
+                    const d = new Date(val);
+                    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                  }}
+                />
+                <YAxis 
+                  tick={{ fill: '#64748b' }}
+                  tickFormatter={(val) => `$${val}`}
+                  domain={['auto', 'auto']}
+                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
+                <Tooltip 
+                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Patrimônio (USD)']}
+                  labelFormatter={(label) => new Date(label).toLocaleString()}
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#f8fafc', borderRadius: '8px' }}
+                  itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="totalUsdValue" 
+                  stroke="#10b981" 
+                  fillOpacity={1} 
+                  fill="url(#colorUsdMain)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex justify-center items-center h-full">
+              <p className="text-slate-500">Nenhum histórico registrado ainda.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -176,6 +281,44 @@ export default function DashboardOverview() {
                         ))}
                       </div>
                     )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="text-xl font-bold text-white mt-8 mb-4">Connected Exchanges Balances</h3>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto shadow-sm mb-8">
+        <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
+          <thead className="bg-slate-900/50 border-b border-slate-800 text-slate-400">
+            <tr>
+              <th className="px-6 py-4 font-medium">Exchange</th>
+              <th className="px-6 py-4 font-medium text-right">Total USD</th>
+              <th className="px-6 py-4 font-medium text-right">Balances</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {loading ? (
+              <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">Loading balances...</td></tr>
+            ) : cexBalances.length === 0 ? (
+              <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No exchange history found.</td></tr>
+            ) : cexBalances.map((snap, idx) => (
+              <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                <td className="px-6 py-4 font-medium text-white align-top pt-5 capitalize">{snap.exchange}</td>
+                <td className="px-6 py-4 text-right font-bold text-white text-lg align-top pt-5">
+                  ${snap.totalUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td className="px-6 py-4 text-right align-top">
+                  <div className="flex flex-col items-end gap-1">
+                    {snap.balances && snap.balances.filter((b: any) => b.total > 0).map((b: any, bIdx: number) => (
+                      <span key={bIdx} className="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded-md border border-slate-700 flex items-center gap-1">
+                        <span className="text-white font-medium">{b.total.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                        <span className="text-indigo-400">{b.asset}</span>
+                        <span className="text-slate-500 ml-1">(${b.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                      </span>
+                    ))}
                   </div>
                 </td>
               </tr>

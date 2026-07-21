@@ -19,6 +19,8 @@ type ScalpingTrade = {
   symbol: string;
   entryPrice?: number;
   exitPrice?: number;
+  entryTime?: string;
+  exitTime?: string;
   amount: number;
   pnl: number;
   status: string;
@@ -36,6 +38,8 @@ type ScalpingStrategy = {
   maxSpreadPercentage: number;
   maxPositionTimeMs: number;
   bufferPercentage: number;
+  dailyLossLimit: number;
+  postLossCooldownMs: number;
   active: boolean;
   currentTrend?: {
     isUptrend: boolean;
@@ -47,6 +51,10 @@ type ScalpingStrategy = {
     atr?: number;
     statusMessage: string;
     lastUpdate: string;
+    priceAction?: {
+      recentResistance: number;
+      distanceToResistancePct: number;
+    };
   };
 };
 
@@ -60,6 +68,8 @@ export default function ScalpingPage() {
   const [maxSpreadPercentage, setMaxSpreadPercentage] = useState('0.1');
   const [maxPositionTimeMs, setMaxPositionTimeMs] = useState('30000');
   const [bufferPercentage, setBufferPercentage] = useState('0.01');
+  const [dailyLossLimit, setDailyLossLimit] = useState('0');
+  const [postLossCooldownMs, setPostLossCooldownMs] = useState('300000');
 
   const [exchangeKeys, setExchangeKeys] = useState<ExchangeKey[]>([]);
   const [selectedExchangeKeyId, setSelectedExchangeKeyId] = useState('');
@@ -160,11 +170,13 @@ export default function ScalpingPage() {
         stopLossPercentage: Number(stopLossPercentage),
         maxSpreadPercentage: Number(maxSpreadPercentage),
         maxPositionTimeMs: Number(maxPositionTimeMs),
-        bufferPercentage: Number(bufferPercentage)
+        bufferPercentage: Number(bufferPercentage),
+        dailyLossLimit: Number(dailyLossLimit),
+        postLossCooldownMs: Number(postLossCooldownMs)
       })
     });
     if (res.ok) {
-      setName(''); setSymbol('SOL/USDT'); setTradeSize('100'); setTakeProfitPercentage('0.08'); setStopLossPercentage('0.05'); setMaxSpreadPercentage('0.1'); setMaxPositionTimeMs('30000'); setBufferPercentage('0.01');
+      setName(''); setSymbol('SOL/USDT'); setTradeSize('100'); setTakeProfitPercentage('0.08'); setStopLossPercentage('0.05'); setMaxSpreadPercentage('0.1'); setMaxPositionTimeMs('30000'); setBufferPercentage('0.01'); setDailyLossLimit('0'); setPostLossCooldownMs('300000');
       fetchStrategies();
       setIsFormOpen(false);
     }
@@ -184,6 +196,8 @@ export default function ScalpingPage() {
         maxSpreadPercentage: editingStrategy.maxSpreadPercentage,
         maxPositionTimeMs: editingStrategy.maxPositionTimeMs,
         bufferPercentage: editingStrategy.bufferPercentage,
+        dailyLossLimit: editingStrategy.dailyLossLimit,
+        postLossCooldownMs: editingStrategy.postLossCooldownMs,
         symbol: editingStrategy.symbol.toUpperCase()
       })
     });
@@ -208,6 +222,18 @@ export default function ScalpingPage() {
       body: JSON.stringify({ id, active: !currentActive })
     });
     if (res.ok) fetchStrategies();
+  };
+
+  const handleDeleteAllTrades = async () => {
+    if (!confirm('Are you sure you want to delete all operation logs?')) return;
+    const res = await fetch(`/api/scalping/trades`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (res.ok) {
+        fetchTrades();
+        fetchStats(); // Update stats as well
+    }
   };
 
   return (
@@ -316,6 +342,19 @@ export default function ScalpingPage() {
                           {strat.currentTrend.atr ? strat.currentTrend.atr.toFixed(4) : '--'}
                         </span>
                       </div>
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-slate-500">Price Act.</span>
+                        <span className={clsx(
+                          "font-bold",
+                          strat.currentTrend.priceAction
+                            ? (strat.currentTrend.priceAction.distanceToResistancePct > 0 && strat.currentTrend.priceAction.distanceToResistancePct < 0.05
+                                ? "text-red-400"
+                                : "text-emerald-400")
+                            : "text-slate-500"
+                        )}>
+                          {strat.currentTrend.priceAction ? strat.currentTrend.priceAction.distanceToResistancePct.toFixed(3) + '%' : '--'}
+                        </span>
+                      </div>
                       <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-center gap-1.5">
                         {strat.currentTrend.isUptrend ? (
                           <TrendingUp className="w-3 h-3 text-emerald-500" />
@@ -353,7 +392,7 @@ export default function ScalpingPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-4 mt-4">
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Trade Size</p>
                 <p className="text-sm font-semibold text-emerald-400">${strat.tradeSize.toLocaleString()}</p>
@@ -377,6 +416,14 @@ export default function ScalpingPage() {
               <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
                 <p className="text-xs text-slate-500 mb-1">Buffer</p>
                 <p className="text-sm font-semibold text-indigo-400">{strat.bufferPercentage}%</p>
+              </div>
+              <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
+                <p className="text-xs text-slate-500 mb-1">Daily Loss Limit</p>
+                <p className="text-sm font-semibold text-red-400">{strat.dailyLossLimit > 0 ? `$${strat.dailyLossLimit}` : 'Disabled'}</p>
+              </div>
+              <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
+                <p className="text-xs text-slate-500 mb-1">Loss Cooldown</p>
+                <p className="text-sm font-semibold text-cyan-400">{((strat.postLossCooldownMs || 300000) / 60000).toFixed(0)}min</p>
               </div>
             </div>
           </div>
@@ -436,6 +483,14 @@ export default function ScalpingPage() {
               <label className="block text-sm text-slate-400 mb-1">Slippage Buffer (%)</label>
               <input required type="number" step="0.01" value={bufferPercentage} onChange={e => setBufferPercentage(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="0.01" />
             </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Daily Loss Limit ($) <span className="text-slate-600">(0 = off)</span></label>
+              <input type="number" step="1" value={dailyLossLimit} onChange={e => setDailyLossLimit(e.target.value)} className="w-full bg-slate-950 border border-red-900/50 rounded-lg px-4 py-2 text-white outline-none focus:border-red-500 font-mono" placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Post-Loss Cooldown (ms)</label>
+              <input type="number" step="1000" value={postLossCooldownMs} onChange={e => setPostLossCooldownMs(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="300000" />
+            </div>
           </div>
 
           <button type="submit" className="w-full bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 mt-4">
@@ -466,9 +521,16 @@ export default function ScalpingPage() {
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
               <p className="text-sm text-slate-400 mb-1">Net Accumulated PnL</p>
-              <p className={clsx("text-2xl font-bold", stats.totalPnlPercentage >= 0 ? "text-emerald-400" : "text-red-400")}>
-                {stats.totalPnlPercentage > 0 ? '+' : ''}{stats.totalPnlPercentage.toFixed(4)}%
-              </p>
+              <div className="flex flex-col">
+                <p className={clsx("text-2xl font-bold", stats.totalPnlPercentage >= 0 ? "text-emerald-400" : "text-red-400")}>
+                  {stats.totalPnlPercentage > 0 ? '+' : ''}{stats.totalPnlPercentage.toFixed(4)}%
+                </p>
+                {stats.totalUsdPnl !== undefined && (
+                  <p className={clsx("text-sm font-semibold", stats.totalUsdPnl >= 0 ? "text-emerald-500/80" : "text-red-500/80")}>
+                    {stats.totalUsdPnl > 0 ? '+' : ''}${stats.totalUsdPnl.toFixed(4)}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm overflow-y-auto max-h-[88px] custom-scrollbar">
               <p className="text-sm text-slate-400 mb-2">PnL by Symbol</p>
@@ -476,14 +538,20 @@ export default function ScalpingPage() {
                 {Object.keys(stats.profitBySymbol || {}).length === 0 ? (
                   <p className="text-xs text-slate-500">No data</p>
                 ) : (
-                  Object.entries(stats.profitBySymbol).map(([sym, pnl]) => (
-                    <div key={sym} className="flex justify-between items-center text-sm">
-                      <span className="text-slate-300 font-mono text-xs">{sym}</span>
-                      <span className={clsx("font-semibold text-xs", (pnl as number) >= 0 ? "text-emerald-400" : "text-red-400")}>
-                        {(pnl as number) > 0 ? '+' : ''}{(pnl as number).toFixed(4)}%
-                      </span>
-                    </div>
-                  ))
+                  Object.entries(stats.statsBySymbol || {}).map(([sym, data]: [string, any]) => {
+                    const winRate = data.totalTrades > 0 ? (data.successfulTrades / data.totalTrades) * 100 : 0;
+                    return (
+                      <div key={sym} className="flex justify-between items-center text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-slate-300 font-mono text-xs">{sym}</span>
+                          <span className="text-[10px] text-slate-500">Win Rate: {winRate.toFixed(1)}%</span>
+                        </div>
+                        <span className={clsx("font-semibold text-xs", data.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {data.profit > 0 ? '+' : ''}{data.profit.toFixed(4)}%
+                        </span>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -492,9 +560,21 @@ export default function ScalpingPage() {
       )}
 
       <div className="mt-8 bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm">
-        <h4 className="text-lg font-medium text-white mb-6 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-indigo-500" /> Recent Scalping Operations
-        </h4>
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-lg font-medium text-white flex items-center gap-2">
+            <Activity className="w-5 h-5 text-indigo-500" /> Recent Scalping Operations
+          </h4>
+          {trades.length > 0 && (
+            <button 
+              onClick={handleDeleteAllTrades}
+              className="text-xs flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors"
+              title="Delete all trade logs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear Logs
+            </button>
+          )}
+        </div>
         
         {trades.length === 0 ? (
           <div className="p-8 border border-dashed border-slate-700 rounded-xl text-center text-slate-500">
@@ -631,6 +711,14 @@ export default function ScalpingPage() {
                 <div className="col-span-2">
                   <label className="block text-sm text-slate-400 mb-1">Slippage Buffer (%)</label>
                   <input type="number" step="0.01" value={editingStrategy.bufferPercentage} onChange={e => setEditingStrategy({...editingStrategy, bufferPercentage: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Daily Loss Limit ($) <span className="text-slate-600">(0 = off)</span></label>
+                  <input type="number" step="1" value={editingStrategy.dailyLossLimit ?? 0} onChange={e => setEditingStrategy({...editingStrategy, dailyLossLimit: Number(e.target.value)})} className="w-full bg-slate-950 border border-red-900/50 rounded-lg px-4 py-2 text-white outline-none focus:border-red-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Post-Loss Cooldown (ms)</label>
+                  <input type="number" step="1000" value={editingStrategy.postLossCooldownMs ?? 300000} onChange={e => setEditingStrategy({...editingStrategy, postLossCooldownMs: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

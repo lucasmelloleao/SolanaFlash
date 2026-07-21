@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import ScalpingStrategy from '@/models/ScalpingStrategy';
 import { withAuth } from '@/lib/auth';
+import redis from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { name, exchangeKeyId, symbol, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, maxPositionTimeMs, bufferPercentage } = await req.json();
+    const { name, exchangeKeyId, symbol, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, maxPositionTimeMs, bufferPercentage, dailyLossLimit, postLossCooldownMs } = await req.json();
 
     if (!name || !exchangeKeyId || !symbol || !tradeSize || !takeProfitPercentage || !stopLossPercentage) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -34,8 +35,15 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       stopLossPercentage: Number(stopLossPercentage),
       maxSpreadPercentage: maxSpreadPercentage !== undefined ? Number(maxSpreadPercentage) : 0.1,
       maxPositionTimeMs: maxPositionTimeMs ? Number(maxPositionTimeMs) : 30000,
-      bufferPercentage: bufferPercentage ? Number(bufferPercentage) : 0.01
+      bufferPercentage: bufferPercentage ? Number(bufferPercentage) : 0.01,
+      dailyLossLimit: dailyLossLimit !== undefined ? Number(dailyLossLimit) : 0,
+      postLossCooldownMs: postLossCooldownMs !== undefined ? Number(postLossCooldownMs) : 300000
     });
+
+    if (redis) {
+      redis.publish('hft-control', JSON.stringify({ action: 'STRATEGY_UPDATED', strategyId: strategy._id }));
+    }
+
     return NextResponse.json(strategy, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,7 +54,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
     const body = await req.json();
-    const { id, active, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, name, exchangeKeyId, symbol, maxPositionTimeMs, bufferPercentage } = body;
+    const { id, active, tradeSize, takeProfitPercentage, stopLossPercentage, maxSpreadPercentage, name, exchangeKeyId, symbol, maxPositionTimeMs, bufferPercentage, dailyLossLimit, postLossCooldownMs } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
@@ -63,6 +71,8 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     if (name !== undefined) updateData.name = name;
     if (exchangeKeyId !== undefined) updateData.exchangeKeyId = exchangeKeyId;
     if (symbol !== undefined) updateData.symbol = symbol;
+    if (dailyLossLimit !== undefined) updateData.dailyLossLimit = Number(dailyLossLimit);
+    if (postLossCooldownMs !== undefined) updateData.postLossCooldownMs = Number(postLossCooldownMs);
 
     const strategy = await ScalpingStrategy.findOneAndUpdate(
       { _id: id, userId },
@@ -71,6 +81,10 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     );
 
     if (!strategy) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    if (redis) {
+      redis.publish('hft-control', JSON.stringify({ action: 'STRATEGY_UPDATED', strategyId: strategy._id }));
+    }
 
     return NextResponse.json(strategy);
   } catch (error: any) {
@@ -89,6 +103,10 @@ export const DELETE = withAuth(async (req: NextRequest, userId: string) => {
     
     if (!strategy) return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 });
     
+    if (redis) {
+      redis.publish('hft-control', JSON.stringify({ action: 'STRATEGY_DELETED', strategyId: strategy._id }));
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
