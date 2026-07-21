@@ -51,7 +51,7 @@ export default function DashboardOverview() {
           setTotalWallets(data.length);
           
           // Fetch balance for each wallet from Solana mainnet RPC
-          const walletsWithBalances = await Promise.all(data.map(async (w) => {
+          const walletsWithBalances: WalletBalance[] = await Promise.all(data.map(async (w) => {
             try {
               const rpcRes = await fetch(`/api/solana/balance?publicKey=${w.publicKey}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -67,7 +67,7 @@ export default function DashboardOverview() {
           // Calcular o total geral em USDC usando a Jupiter API
           const allMints = new Set<string>(['So11111111111111111111111111111111111111112']); // SOL mint
           walletsWithBalances.forEach(w => {
-            w.tokens?.forEach(t => allMints.add(t.mint));
+            w.tokens?.forEach((t: any) => allMints.add(t.mint));
           });
 
           let prices: Record<string, number> = {};
@@ -94,7 +94,7 @@ export default function DashboardOverview() {
              // Soma o valor do SOL
              walletUsd += (w.balanceSol || 0) * (prices['So11111111111111111111111111111111111111112'] || prices['SOL'] || 0);
              // Soma o valor de todos os tokens
-             w.tokens?.forEach(t => {
+             w.tokens?.forEach((t: any) => {
                if (t.symbol === 'USDC' || t.symbol === 'USDT') {
                  walletUsd += t.balance;
                } else {
@@ -221,7 +221,7 @@ export default function DashboardOverview() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
                 <Tooltip 
                   formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Patrimônio (USD)']}
-                  labelFormatter={(label) => new Date(label).toLocaleString()}
+                  labelFormatter={(label: any) => new Date(label).toLocaleString()}
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#f8fafc', borderRadius: '8px' }}
                   itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
                 />

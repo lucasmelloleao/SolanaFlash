@@ -26,6 +26,8 @@ type ScalpingTrade = {
   status: string;
   errorMessage?: string;
   createdAt: string;
+  realPnL?: number;
+  currentExitPrice?: number;
 };
 
 type ScalpingStrategy = {
@@ -639,10 +641,24 @@ export default function ScalpingPage() {
                       {trade.entryPrice ? `$${trade.entryPrice.toFixed(4)}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300 font-mono">
-                      {trade.exitPrice ? `$${trade.exitPrice.toFixed(4)}` : '-'}
+                      {trade.status === 'in_position' && trade.currentExitPrice ? (
+                        <span className="text-orange-400">${trade.currentExitPrice.toFixed(4)}</span>
+                      ) : trade.exitPrice ? `$${trade.exitPrice.toFixed(4)}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold flex items-center justify-end gap-1">
-                      {trade.pnl > 0 ? (
+                      {trade.status === 'in_position' && trade.realPnL !== undefined ? (
+                        <>
+                          {trade.realPnL >= 0 ? <TrendingUp className="w-3 h-3 text-orange-400" /> : <TrendingDown className="w-3 h-3 text-orange-400" />}
+                          <div className="flex flex-col items-end leading-none">
+                            <span className="text-orange-400">{trade.realPnL > 0 ? '+' : ''}{trade.realPnL.toFixed(4)}%</span>
+                            {trade.currentExitPrice && trade.entryPrice && trade.amount && (
+                              <span className="text-[10px] text-orange-500/80 mt-1">
+                                {trade.realPnL >= 0 ? '+' : '-'}${Math.abs((trade.currentExitPrice - trade.entryPrice) * trade.amount).toFixed(4)}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      ) : trade.pnl > 0 ? (
                         <>
                           <TrendingUp className="w-3 h-3 text-emerald-400" />
                           <div className="flex flex-col items-end leading-none">
@@ -659,7 +675,7 @@ export default function ScalpingPage() {
                           </div>
                         </>
                       ) : (
-                        <span className="text-slate-500">-</span>
+                        <span className="text-slate-500">0.00%</span>
                       )}
                     </td>
                   </tr>
