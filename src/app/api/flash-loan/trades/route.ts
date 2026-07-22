@@ -9,13 +9,13 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
     
-    // Limpeza: deleta trades que falharam OU ficaram pendentes/simulados há mais de 1 minuto
-    const oneMinuteAgo = new Date(Date.now() - 60000);
+    // Limpeza: deleta trades que falharam OU ficaram pendentes/simulados há mais de 24 horas
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await FlashLoanTrade.deleteMany({
       userId,
       $or: [
         { status: 'failed' },
-        { status: { $in: ['pending', 'simulated'] }, createdAt: { $lt: oneMinuteAgo } }
+        { status: { $in: ['pending', 'simulated'] }, createdAt: { $lt: oneDayAgo } }
       ]
     });
 

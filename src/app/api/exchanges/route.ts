@@ -32,8 +32,8 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         const exchangeKey = new ExchangeKey({
             userId,
             exchangeId,
-            name,
-            apiKey,
+            name: name.trim(),
+            apiKey: apiKey.trim(),
             apiSecret: encryptedSecret,
             active: true
         });
@@ -58,9 +58,44 @@ export const DELETE = withAuth(async (req: NextRequest, userId: string) => {
         await connectMongo();
         const deleted = await ExchangeKey.findOneAndDelete({ _id: id, userId });
         
-        if (!deleted) return NextResponse.json({ success: false, reason: 'Not found or unauthorized' }, { status: 404 });
-        
+        if (!deleted) return NextResponse.json({ success: false, reason: 'Exchange not found' }, { status: 404 });
         return NextResponse.json({ success: true });
+    } catch (e: any) {
+        return NextResponse.json({ success: false, reason: e.message }, { status: 500 });
+    }
+});
+
+export const PUT = withAuth(async (req: NextRequest, userId: string) => {
+    try {
+        await connectMongo();
+        const body = await req.json();
+        const { id, exchangeId, name, apiKey, apiSecret } = body;
+
+        if (!id || !exchangeId || !name || !apiKey) {
+            return NextResponse.json({ success: false, reason: 'Missing required fields' }, { status: 400 });
+        }
+
+        const updateData: any = { exchangeId, name: name.trim(), apiKey: apiKey.trim() };
+
+        if (apiSecret && apiSecret.trim() !== '') {
+            const authContext = `${userId}-${exchangeId}`;
+            updateData.apiSecret = encryptSecretKey(apiSecret.trim(), authContext);
+        }
+
+        const updatedExchange = await ExchangeKey.findOneAndUpdate(
+            { _id: id, userId },
+            { $set: updateData },
+            { new: true }
+        );
+
+        if (!updatedExchange) {
+            return NextResponse.json({ success: false, reason: 'Exchange not found' }, { status: 404 });
+        }
+
+        const responseData = updatedExchange.toObject();
+        delete responseData.apiSecret;
+
+        return NextResponse.json({ success: true, exchange: responseData });
     } catch (e: any) {
         return NextResponse.json({ success: false, reason: e.message }, { status: 500 });
     }

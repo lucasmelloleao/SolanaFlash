@@ -43,6 +43,7 @@ type ScalpingStrategy = {
   dailyLossLimit: number;
   postLossCooldownMs: number;
   active: boolean;
+  exchangeKeyId?: { _id: string, exchangeId: string, name: string };
   currentTrend?: {
     isUptrend: boolean;
     rsi: number;
@@ -266,6 +267,65 @@ export default function ScalpingPage() {
         </button>
       </div>
 
+      {/* DASHBOARD DE ESTATÍSTICAS */}
+      {stats && (
+        <div className="mb-8">
+          <h4 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-500" /> Performance Overview
+          </h4>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Total Operations</p>
+              <p className="text-2xl font-bold text-white">{stats.totalOperations}</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Success / Failed</p>
+              <div className="flex items-center gap-2">
+                <p className="text-2xl font-bold text-emerald-400">{stats.successfulOperations}</p>
+                <span className="text-slate-600">/</span>
+                <p className="text-xl font-semibold text-red-400">{stats.failedOperations}</p>
+              </div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+              <p className="text-sm text-slate-400 mb-1">Net Accumulated PnL</p>
+              <div className="flex flex-col">
+                <p className={clsx("text-2xl font-bold", stats.totalPnlPercentage >= 0 ? "text-emerald-400" : "text-red-400")}>
+                  {stats.totalPnlPercentage > 0 ? '+' : ''}{stats.totalPnlPercentage.toFixed(4)}%
+                </p>
+                {stats.totalUsdPnl !== undefined && (
+                  <p className={clsx("text-sm font-semibold", stats.totalUsdPnl >= 0 ? "text-emerald-500/80" : "text-red-500/80")}>
+                    {stats.totalUsdPnl > 0 ? '+' : ''}${stats.totalUsdPnl.toFixed(4)}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm overflow-y-auto max-h-[88px] custom-scrollbar">
+              <p className="text-sm text-slate-400 mb-2">PnL by Symbol</p>
+              <div className="space-y-1">
+                {Object.keys(stats.profitBySymbol || {}).length === 0 ? (
+                  <p className="text-xs text-slate-500">No data</p>
+                ) : (
+                  Object.entries(stats.statsBySymbol || {}).map(([sym, data]: [string, any]) => {
+                    const winRate = data.totalTrades > 0 ? (data.successfulTrades / data.totalTrades) * 100 : 0;
+                    return (
+                      <div key={sym} className="flex justify-between items-center text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-slate-300 font-mono text-xs">{sym}</span>
+                          <span className="text-[10px] text-slate-500">Win Rate: {winRate.toFixed(1)}%</span>
+                        </div>
+                        <span className={clsx("font-semibold text-xs", data.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {data.profit > 0 ? '+' : ''}{data.profit.toFixed(4)}%
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {strategies.length === 0 ? (
           <div className="col-span-full p-8 border border-dashed border-slate-700 rounded-xl text-center text-slate-500">
@@ -374,7 +434,7 @@ export default function ScalpingPage() {
                     
                     <div className="flex-1 min-w-0 bg-slate-950 rounded-lg border border-slate-800/60 shadow-inner overflow-hidden h-[300px] md:h-full">
                       <iframe 
-                        src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE%3A${encodeURIComponent(strat.symbol.replace('/', '').replace('USDC', 'USDT'))}&interval=1&theme=dark&style=1&timezone=Etc%2FUTC&hide_top_toolbar=1&hide_legend=1&save_image=0`}
+                        src={`https://s.tradingview.com/widgetembed/?symbol=${strat.exchangeKeyId ? strat.exchangeKeyId.exchangeId.toUpperCase() : 'BINANCE'}%3A${encodeURIComponent(strat.symbol.replace('/', '').replace('USDC', 'USDT'))}&interval=1&theme=dark&style=1&timezone=Etc%2FUTC&hide_top_toolbar=1&hide_legend=1&save_image=0`}
                         className="w-full h-full border-0"
                         scrolling="no" 
                       />
@@ -502,64 +562,6 @@ export default function ScalpingPage() {
       </div>
       )}
 
-      {/* DASHBOARD DE ESTATÍSTICAS */}
-      {stats && (
-        <div className="mt-8 mb-8">
-          <h4 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-500" /> Performance Overview
-          </h4>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-              <p className="text-sm text-slate-400 mb-1">Total Operations</p>
-              <p className="text-2xl font-bold text-white">{stats.totalOperations}</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-              <p className="text-sm text-slate-400 mb-1">Success / Failed</p>
-              <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-emerald-400">{stats.successfulOperations}</p>
-                <span className="text-slate-600">/</span>
-                <p className="text-xl font-semibold text-red-400">{stats.failedOperations}</p>
-              </div>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-              <p className="text-sm text-slate-400 mb-1">Net Accumulated PnL</p>
-              <div className="flex flex-col">
-                <p className={clsx("text-2xl font-bold", stats.totalPnlPercentage >= 0 ? "text-emerald-400" : "text-red-400")}>
-                  {stats.totalPnlPercentage > 0 ? '+' : ''}{stats.totalPnlPercentage.toFixed(4)}%
-                </p>
-                {stats.totalUsdPnl !== undefined && (
-                  <p className={clsx("text-sm font-semibold", stats.totalUsdPnl >= 0 ? "text-emerald-500/80" : "text-red-500/80")}>
-                    {stats.totalUsdPnl > 0 ? '+' : ''}${stats.totalUsdPnl.toFixed(4)}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm overflow-y-auto max-h-[88px] custom-scrollbar">
-              <p className="text-sm text-slate-400 mb-2">PnL by Symbol</p>
-              <div className="space-y-1">
-                {Object.keys(stats.profitBySymbol || {}).length === 0 ? (
-                  <p className="text-xs text-slate-500">No data</p>
-                ) : (
-                  Object.entries(stats.statsBySymbol || {}).map(([sym, data]: [string, any]) => {
-                    const winRate = data.totalTrades > 0 ? (data.successfulTrades / data.totalTrades) * 100 : 0;
-                    return (
-                      <div key={sym} className="flex justify-between items-center text-sm">
-                        <div className="flex flex-col">
-                          <span className="text-slate-300 font-mono text-xs">{sym}</span>
-                          <span className="text-[10px] text-slate-500">Win Rate: {winRate.toFixed(1)}%</span>
-                        </div>
-                        <span className={clsx("font-semibold text-xs", data.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
-                          {data.profit > 0 ? '+' : ''}{data.profit.toFixed(4)}%
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="mt-8 bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm">
         <div className="flex items-center justify-between mb-6">

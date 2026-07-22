@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import ScalpingStrategy from '@/models/ScalpingStrategy';
+import ExchangeKey from '@/models/ExchangeKey'; // Ensure model is registered
 import { withAuth } from '@/lib/auth';
 import redis from '@/lib/redis';
 
@@ -9,7 +10,9 @@ export const dynamic = 'force-dynamic';
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const strategies = await ScalpingStrategy.find({ userId }).sort({ createdAt: -1 });
+    // Preload ExchangeKey model
+    ExchangeKey.init();
+    const strategies = await ScalpingStrategy.find({ userId }).populate('exchangeKeyId').sort({ createdAt: -1 });
     return NextResponse.json(strategies);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
