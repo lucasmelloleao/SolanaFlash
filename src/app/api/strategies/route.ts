@@ -18,7 +18,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
-    const { name, walletId, tokenAMint, tokenBMint, tokenBSymbol, borrowAmount, minProfitUsdc, provider, lendingProvider, temporary } = await req.json();
+    const { name, walletId, tokenAMint, tokenBMint, tokenBSymbol, borrowAmount, minProfitUsdc, provider, lendingProvider, borrowApy, temporary } = await req.json();
 
     if (!name || !walletId || !tokenBMint || !borrowAmount) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -35,6 +35,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       minProfitUsdc, 
       provider,
       lendingProvider,
+      borrowApy,
       temporary: temporary || false
     });
     return NextResponse.json(strategy, { status: 201 });
@@ -47,7 +48,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
   try {
     await connectToDatabase();
     const body = await req.json();
-    const { id, active, borrowAmount, minProfitUsdc, name, walletId, provider, lendingProvider, tokenBMint, tokenBSymbol } = body;
+    const { id, active, borrowAmount, minProfitUsdc, name, walletId, provider, lendingProvider, borrowApy, tokenBMint, tokenBSymbol } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
@@ -61,6 +62,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     if (walletId !== undefined) updateData.walletId = walletId;
     if (provider !== undefined) updateData.provider = provider;
     if (lendingProvider !== undefined) updateData.lendingProvider = lendingProvider;
+    if (borrowApy !== undefined) updateData.borrowApy = Number(borrowApy);
     if (tokenBMint !== undefined) updateData.tokenBMint = tokenBMint;
     if (tokenBSymbol !== undefined) updateData.tokenBSymbol = tokenBSymbol;
 

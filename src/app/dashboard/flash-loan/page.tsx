@@ -27,6 +27,7 @@ type Strategy = {
   minProfitUsdc: number;
   provider: string;
   lendingProvider: string;
+  borrowApy: number;
   active: boolean;
   walletId?: string;
 }
@@ -55,6 +56,7 @@ export default function FlashLoanPage() {
   const [minProfitUsdc, setMinProfitUsdc] = useState('0');
   const [provider, setProvider] = useState('jupiter');
   const [lendingProvider, setLendingProvider] = useState('solend');
+  const [borrowApy, setBorrowApy] = useState('0.09');
   const [botOnline, setBotOnline] = useState<boolean>(false);
   const [botMode, setBotMode] = useState<'simulated' | 'live'>('simulated');
   const [connectionMode, setConnectionMode] = useState<'rpc' | 'wss'>('rpc');
@@ -178,10 +180,10 @@ export default function FlashLoanPage() {
     const res = await fetch('/api/strategies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ name, walletId: selectedWalletId, tokenBMint, tokenBSymbol: tokenObj?.symbol || 'UNKNOWN', borrowAmount: Number(borrowAmount), minProfitUsdc: Number(minProfitUsdc), provider, lendingProvider })
+      body: JSON.stringify({ name, walletId: selectedWalletId, tokenBMint, tokenBSymbol: tokenObj?.symbol || 'UNKNOWN', borrowAmount: Number(borrowAmount), minProfitUsdc: Number(minProfitUsdc), provider, lendingProvider, borrowApy: Number(borrowApy) })
     });
     if (res.ok) {
-      setName(''); setTokenBMint(KNOWN_TOKENS[0].mint); setBorrowAmount(''); setMinProfitUsdc('0'); setLendingProvider('solend');
+      setName(''); setTokenBMint(KNOWN_TOKENS[0].mint); setBorrowAmount(''); setMinProfitUsdc('0'); setLendingProvider('solend'); setBorrowApy('0.09');
       fetchStrategies();
       setIsFormOpen(false);
     }
@@ -200,6 +202,7 @@ export default function FlashLoanPage() {
         minProfitUsdc: editingStrategy.minProfitUsdc,
         provider: editingStrategy.provider,
         lendingProvider: editingStrategy.lendingProvider,
+        borrowApy: editingStrategy.borrowApy,
         tokenBMint: editingStrategy.tokenBMint,
         tokenBSymbol: tokenObj?.symbol || 'UNKNOWN',
         walletId: editingStrategy.walletId
@@ -437,6 +440,10 @@ export default function FlashLoanPage() {
                 <option value="none">Recursos Próprios (Sem Flash Loan)</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Borrow Fee % (APY)</label>
+              <input required type="number" step="0.01" value={borrowApy} onChange={e => setBorrowApy(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" placeholder="0.09" />
+            </div>
           </div>
 
           <div>
@@ -575,6 +582,10 @@ export default function FlashLoanPage() {
                     <option value="kamino">Kamino</option>
                     <option value="none">Recursos Próprios</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Borrow Fee % (APY)</label>
+                  <input type="number" step="0.01" value={editingStrategy.borrowApy} onChange={e => setEditingStrategy({...editingStrategy, borrowApy: Number(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500 font-mono" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

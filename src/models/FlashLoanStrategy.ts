@@ -11,6 +11,7 @@ const FlashLoanStrategySchema = new mongoose.Schema({
   minProfitUsdc: { type: Number, default: 0 },
   provider: { type: String, enum: ['jupiter', 'raptor'], default: 'jupiter' },
   lendingProvider: { type: String, enum: ['solend', 'kamino', 'none'], default: 'solend' },
+  borrowApy: { type: Number, default: 0.09 },
   active: { type: Boolean, default: true },
   temporary: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
